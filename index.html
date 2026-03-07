@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <title>🏸 羽毛球赛程安排</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: #f4f6f4; color: #111a11; min-height: 100%; }
+    body { font-family: 'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif; }
+    #root { min-height: 100vh; }
+    input, button, select, textarea { font-family: inherit; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- React + Babel from CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useLayoutEffect } = React;
+
+
+/* ═══════════════════════════════════════════════════════════
+   THEME — clean light palette, works in any host/iframe
+   All contrast ratios ≥ 4.5:1 (WCAG AA)
+═══════════════════════════════════════════════════════════ */
+const BG       = "#f4f6f4";   // page background — very light grey-green
+const BG2      = "#ffffff";   // card background
+const BG3      = "#eef1ee";   // input / sunken surface
+const BORDER   = "rgba(0,0,0,0.09)";
+const TEXT      = "#111a11";  // near-black — contrast vs BG ≈ 16:1
+const TEXT2     = "rgba(17,26,17,0.55)";
+const TEXT3     = "rgba(17,26,17,0.38)";
+const EMERALD   = "#16a34a";  // green-700
+const EMERALD_L = "#dcfce7";  // green-100 (chip / badge bg)
+const SKY       = "#0284c7";  // sky-600
+const SKY_L     = "#e0f2fe";
+const ROSE      = "#e11d48";  // rose-600
+const ROSE_L    = "#ffe4e6";
+const AMBER     = "#d97706";  // amber-600
+const AMBER_L   = "#fef3c7";
+const VIOLET    = "#7c3aed";  // violet-700
+const VIOLET_L  = "#ede9fe";
+
+// No dark-forcing needed — light theme matches any host background
+function useForceDarkBg() {} // kept as no-op so call sites don't break
+
+/* Injected into every root render — defeats host iframe color:white !important */
+function BmtStyles() {
+  return (
+    <style>{`
+      .bmt { background: #f4f6f4 !important; color: #111a11 !important; }
+      .bmt * { color: inherit !important; box-sizing: border-box; }
+      .bmt button { font-family: inherit !important; }
+      .bmt input  { font-family: inherit !important; color: #111a11 !important; }
+      /* colour overrides for intentionally-coloured elements */
+      .bmt .c-sky    { color: #0284c7 !important; }
+      .bmt .c-rose   { color: #e11d48 !important; }
+      .bmt .c-amber  { color: #d97706 !important; }
+      .bmt .c-green  { color: #16a34a !important; }
+      .bmt .c-violet { color: #7c3aed !important; }
+      .bmt .c-muted  { color: rgba(17,26,17,0.45) !important; }
+      .bmt .c-dim    { color: rgba(17,26,17,0.35) !important; }
+      .bmt .c-white  { color: #ffffff !important; }
+      .bmt .c-dark-green { color: #14532d !important; }
+    `}</style>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════════════════════ */
+function uid() { return Math.random().toString(36).slice(2, 9); }
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function pKey(a, b) { return [a, b].sort().join("||"); }
+function mGet(m, a, b) { return m[pKey(a, b)] || 0; }
+function mInc(m, a, b) { m[pKey(a, b)] = mGet(m, a, b) + 1; }
+function baseId(id) { return id.split("__bx")[0]; }
+function teamSkill(team) {
+  return team.reduce((s, p) => s + (p.skill ?? 5), 0) / team.length;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MATCH GENERATION
+═══════════════════════════════════════════════════════════ */
+function genMixed(males, females) {
+  let M = [...males], F = [...females];
+  const n = Math.max(M.length, F.length);
+  // More females than males → borrow females to fill male slots
+  while (M.length < n) {
+    const src = females[M.length % females.length];
+    M.push({ ...src, id: src.id + "__bx" + M.length, borrowed: true });
+  }
+  // More males than females → borrow males to fill female slots
+  while (F.length < n) {
+    const src = males[F.length % males.length];
+    F.push({ ...src, id: src.id + "__bx" + F.length, borrowed: true });
+  }
+  const teams = [];
+  for (const m of M) for (const f of F) {
+    if (baseId(m.id) !== baseId(f.id)) teams.push([m, f]);
+  }
+  const matches = [];
+  for (let i = 0; i < teams.length; i++)
+    for (let j = i + 1; j < teams.length; j++) {
+      const bases = [...teams[i], ...teams[j]].map(p => baseId(p.id));
+      if (new Set(bases).size === 4)
+        matches.push({ teamA: teams[i], teamB: teams[j] });
+    }
+  return matches;
+}
+
+function genDoubles(players) {
+  const teams = [];
+  for (let i = 0; i < players.length; i++)
+    for (let j = i + 1; j < players.length; j++)
+      teams.push([players[i], players[j]]);
+  const matches = [];
+  for (let i = 0; i < teams.length; i++)
+    for (let j = i + 1; j < teams.length; j++) {
+      const ids = [...teams[i], ...teams[j]].map(p => p.id);
+      if (new Set(ids).size === 4)
+        matches.push({ teamA: teams[i], teamB: teams[j] });
+    }
+  return matches;
+}
+
+function genSingles(players) {
+  const matches = [];
+  for (let i = 0; i < players.length; i++)
+    for (let j = i + 1; j < players.length; j++)
+      matches.push({ teamA: [players[i]], teamB: [players[j]] });
+  return matches;
+}
+
+function getAllMatches(mode, males, females) {
+  switch (mode) {
+    case "mixed":           return genMixed(males, females);
+    case "mens_doubles":    return genDoubles(males);
+    case "womens_doubles":  return genDoubles(females);
+    case "mens_singles":    return genSingles(males);
+    case "womens_singles":  return genSingles(females);
+    default: return [];
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SCHEDULING ALGORITHMS
+═══════════════════════════════════════════════════════════ */
+function novelty(match, opposed, teamed) {
+  const ap = match.teamA.map(p => baseId(p.id));
+  const bp = match.teamB.map(p => baseId(p.id));
+  let s = 0;
+  if (ap.length === 2) s += Math.max(0, 5 - mGet(teamed, ap[0], ap[1]));
+  if (bp.length === 2) s += Math.max(0, 5 - mGet(teamed, bp[0], bp[1]));
+  for (const a of ap) for (const b of bp) s += Math.max(0, 5 - mGet(opposed, a, b));
+  return s;
+}
+
+// games played per base-player id
+function makeGameCount() { return {}; }
+function gcGet(gc, id) { return gc[baseId(id)] || 0; }
+function gcInc(gc, ids) { ids.forEach(id => { const b = baseId(id); gc[b] = (gc[b]||0)+1; }); }
+
+// Total games load of all players in a match
+function loadScore(match, gc) {
+  return [...match.teamA, ...match.teamB].reduce((s, p) => s + gcGet(gc, p.id), 0);
+}
+
+// Max games any single player in this match has played
+function maxLoad(match, gc) {
+  return Math.max(...[...match.teamA, ...match.teamB].map(p => gcGet(gc, p.id)));
+}
+
+// Gender imbalance penalty: in mixed doubles, prefer matches where the
+// gender with fewer total games gets to play. Returns higher = worse imbalance.
+function genderImbalance(match, gc) {
+  const players = [...match.teamA, ...match.teamB];
+  const males   = players.filter(p => p.gender === "M");
+  const females = players.filter(p => p.gender === "F");
+  if (!males.length || !females.length) return 0; // not mixed, no penalty
+  const avgM = males.reduce((s, p) => s + gcGet(gc, p.id), 0) / males.length;
+  const avgF = females.reduce((s, p) => s + gcGet(gc, p.id), 0) / females.length;
+  return Math.abs(avgM - avgF);
+}
+
+// Hard cap: no player may exceed targetGames + 5
+function exceedsHardCap(match, gc, target) {
+  const cap = target + 5;
+  return [...match.teamA, ...match.teamB].some(p => gcGet(gc, p.id) >= cap);
+}
+
+// Unique key for a match by its 4 base player ids (order-independent)
+function matchFingerprint(match) {
+  return [...match.teamA, ...match.teamB].map(p => baseId(p.id)).sort().join("|");
+}
+
+// Priority order: 1→hard cap (filter), 3→loadScore, 4→novelty, 2→maxLoad
+// Higher return value = schedule sooner
+function matchPriority(match, opposed, teamed, gc) {
+  const ls  = loadScore(match, gc);            // #3 — spread total games broadly
+  const nov = novelty(match, opposed, teamed); // #4 — fresh pairings
+  const ml  = maxLoad(match, gc);              // #2 — individual max last
+  return -ls * 100000000 + nov * 10000 - ml;
+}
+
+function runSchedule(allMatches, targetGames, sortFn) {
+  const remaining = [...allMatches];
+  const rounds = [];
+  const opposed = {}, teamed = {}, gc = makeGameCount();
+  const played = new Set();
+
+  while (remaining.length > 0) {
+    // Remove exact duplicates and hard-cap violations from candidate pool
+    const eligible = remaining.filter(m =>
+      !played.has(matchFingerprint(m)) && !exceedsHardCap(m, gc, targetGames)
+    );
+    if (eligible.length === 0) break;
+
+    sortFn(eligible, opposed, teamed, gc, targetGames);
+
+    const used = new Set(), round = [], playedSet = new Set();
+
+    // Pass 1: prefer players who haven't hit soft target yet (target+1 threshold)
+    for (const m of eligible) {
+      const ids = [...m.teamA, ...m.teamB].map(p => p.id);
+      if (ids.every(id => !used.has(id))) {
+        if (ids.some(id => gcGet(gc, id) >= targetGames + 1)) continue;
+        ids.forEach(id => used.add(id));
+        round.push(m); playedSet.add(m);
+        const ap = m.teamA.map(p => baseId(p.id));
+        const bp = m.teamB.map(p => baseId(p.id));
+        if (ap.length === 2) mInc(teamed, ap[0], ap[1]);
+        if (bp.length === 2) mInc(teamed, bp[0], bp[1]);
+        for (const a of ap) for (const b of bp) mInc(opposed, a, b);
+        gcInc(gc, ids);
+        played.add(matchFingerprint(m));
+      }
+    }
+
+    // Pass 2: relax soft cap (but hard cap still enforced by eligible filter above)
+    for (const m of eligible) {
+      if (playedSet.has(m)) continue;
+      const ids = [...m.teamA, ...m.teamB].map(p => p.id);
+      if (ids.every(id => !used.has(id))) {
+        ids.forEach(id => used.add(id));
+        round.push(m); playedSet.add(m);
+        const ap = m.teamA.map(p => baseId(p.id));
+        const bp = m.teamB.map(p => baseId(p.id));
+        if (ap.length === 2) mInc(teamed, ap[0], ap[1]);
+        if (bp.length === 2) mInc(teamed, bp[0], bp[1]);
+        for (const a of ap) for (const b of bp) mInc(opposed, a, b);
+        gcInc(gc, ids);
+        played.add(matchFingerprint(m));
+      }
+    }
+
+    for (let i = remaining.length - 1; i >= 0; i--) {
+      if (playedSet.has(remaining[i])) remaining.splice(i, 1);
+    }
+    if (round.length === 0) break;
+    rounds.push(round);
+  }
+  return rounds;
+}
+
+function scheduleRoundRobin(allMatches, targetGames = Infinity) {
+  return runSchedule(shuffle([...allMatches]), targetGames,
+    (eligible, opposed, teamed, gc) => {
+      eligible.sort((x, y) =>
+        matchPriority(y, opposed, teamed, gc) - matchPriority(x, opposed, teamed, gc)
+      );
+    }
+  );
+}
+
+function scheduleBalanced(allMatches, targetGames = Infinity) {
+  return runSchedule([...allMatches], targetGames,
+    (eligible, opposed, teamed, gc) => {
+      eligible.sort((a, b) => {
+        // 3: loadScore first (spread total games)
+        const lsDiff = loadScore(a, gc) - loadScore(b, gc);
+        if (lsDiff !== 0) return lsDiff;
+        // 4: novelty
+        const novDiff = novelty(b, opposed, teamed) - novelty(a, opposed, teamed);
+        if (novDiff !== 0) return novDiff;
+        // 2: maxLoad last soft criterion
+        const mlDiff = maxLoad(a, gc) - maxLoad(b, gc);
+        if (mlDiff !== 0) return mlDiff;
+        // skill gap tiebreaker (balanced mode only)
+        return Math.abs(teamSkill(a.teamA) - teamSkill(a.teamB)) -
+               Math.abs(teamSkill(b.teamA) - teamSkill(b.teamB));
+      });
+    }
+  );
+}
+
+function computeStats(rounds, players) {
+  const opposed = {}, teamed = {}, gc = makeGameCount();
+  for (const round of rounds) for (const m of round) {
+    const ap = m.teamA.map(p => baseId(p.id));
+    const bp = m.teamB.map(p => baseId(p.id));
+    if (ap.length === 2) mInc(teamed, ap[0], ap[1]);
+    if (bp.length === 2) mInc(teamed, bp[0], bp[1]);
+    for (const a of ap) for (const b of bp) mInc(opposed, a, b);
+    gcInc(gc, [...m.teamA, ...m.teamB].map(p => p.id));
+  }
+  const ids = players.map(p => p.id);
+  let totO = 0, covO = 0, totT = 0, covT = 0;
+  for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
+    totO++; if (mGet(opposed, ids[i], ids[j]) > 0) covO++;
+    totT++; if (mGet(teamed, ids[i], ids[j]) > 0) covT++;
+  }
+  const gameCounts = ids.map(id => gc[id] || 0);
+  const minG = gameCounts.length ? Math.min(...gameCounts) : 0;
+  const maxG = gameCounts.length ? Math.max(...gameCounts) : 0;
+  const avgG = gameCounts.length ? (gameCounts.reduce((s,v)=>s+v,0)/gameCounts.length) : 0;
+  const perPlayer = players.map(p => ({ id: p.id, name: p.name, games: gc[p.id] || 0 }));
+  return {
+    rounds: rounds.length,
+    totalMatches: rounds.reduce((s, r) => s + r.length, 0),
+    opponentCoverage: totO > 0 ? Math.round(covO / totO * 100) : 100,
+    teammateCoverage: totT > 0 ? Math.round(covT / totT * 100) : 100,
+    minGames: minG,
+    maxGames: maxG,
+    avgGames: Math.round(avgG * 10) / 10,
+    perPlayer,
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════════════════════ */
+const MODES = [
+  { id: "mixed",          label: "混合双打", en: "Mixed Doubles",   icon: "⚡", needM: 1, needF: 1 },
+  { id: "mens_doubles",   label: "男子双打", en: "Men's Doubles",   icon: "💪", needM: 2, needF: 0 },
+  { id: "womens_doubles", label: "女子双打", en: "Women's Doubles", icon: "🌸", needM: 0, needF: 2 },
+  { id: "mens_singles",   label: "男子单打", en: "Men's Singles",   icon: "🔥", needM: 2, needF: 0 },
+  { id: "womens_singles", label: "女子单打", en: "Women's Singles", icon: "✨", needM: 0, needF: 2 },
+];
+const SKILL_LABELS = ["","新手 Beginner","入门 Novice","初级 Basic","初中 Pre-Inter","中级 Inter","中高 Upper-Inter","高级 Advanced","精英 Elite","大师 Master","冠军 Champion"];
+
+/* ═══════════════════════════════════════════════════════════
+   SHARED UI ATOMS
+═══════════════════════════════════════════════════════════ */
+const S = {
+  card:   { background: BG2, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" },
+  card2:  { background: BG3, border: `1px solid ${BORDER}`, borderRadius: 12 },
+  label:  { fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" },
+  text2:  {},
+  text3:  {},
+  btnGhost: { background: "rgba(0,0,0,0.06)", border: "none", borderRadius: 8, cursor: "pointer" },
+};
+
+function Chip({ player }) {
+  const isMale = player.gender === "M";
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 3,
+      padding: "2px 8px", borderRadius: 999, fontSize: 12, fontWeight: 700,
+      background: isMale ? "rgba(2,132,199,0.10)" : "rgba(225,29,72,0.10)",
+      border: `1px solid ${isMale ? "rgba(2,132,199,0.30)" : "rgba(225,29,72,0.25)"}`,
+    }} className={isMale ? "c-sky" : "c-rose"}>
+      {player.name}{player.borrowed ? "★" : ""}
+      {player.skill !== undefined && <span style={{ opacity: 0.5, fontSize: 9 }}>L{player.skill}</span>}
+    </span>
+  );
+}
+
+function CoverBar({ pct, color }) {
+  const fill = color === "green" ? EMERALD : color === "blue" ? SKY : AMBER;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ flex: 1, height: 6, background: "rgba(0,0,0,0.07)", borderRadius: 999, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${pct}%`, background: fill, borderRadius: 999, transition: "width 1s" }} />
+      </div>
+      <span style={{ fontSize: 11, fontWeight: 900, width: 32, textAlign: "right" }}>{pct}%</span>
+    </div>
+  );
+}
+
+function ModeBtn({ m, active, disabled, onClick, showBorrow }) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
+      borderRadius: 12, border: `1px solid ${active ? "rgba(22,163,74,0.45)" : disabled ? "rgba(0,0,0,0.04)" : "rgba(0,0,0,0.07)"}`,
+      background: active ? "rgba(22,163,74,0.12)" : disabled ? "rgba(0,0,0,0.02)" : "rgba(0,0,0,0.04)",
+      width: "100%", textAlign: "left", cursor: disabled ? "not-allowed" : "pointer",
+    }} className={active ? "c-dark-green" : disabled ? "c-dim" : "c-muted"}>
+      <span style={{ fontSize: 16 }}>{m.icon}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 14 }}>{m.label}</div>
+        <div style={{ fontSize: 10, opacity: 0.5 }}>{m.en}</div>
+      </div>
+      {active && <span style={{ fontSize: 12, flexShrink: 0 }}>✓</span>}
+      {showBorrow && !disabled && <span style={{ fontSize: 9, flexShrink: 0 }}>★借位 Sub-in</span>}
+    </button>
+  );
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   RESULT VIEW
+═══════════════════════════════════════════════════════════ */
+function ResultView({ result, matchMode, onRegenerate }) {
+  const { rounds, stats } = result;
+  const [open, setOpen] = useState(0);
+  const [showShare, setShowShare] = useState(false);
+  const hasBorrow = rounds.some(r => r.some(m => [...m.teamA, ...m.teamB].some(p => p.borrowed)));
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
+      {showShare && <ShareModal result={result} matchMode={matchMode} onClose={() => setShowShare(false)} />}
+
+      {/* Stats card */}
+      <div style={{ ...S.card, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={S.label}>赛程统计 Schedule Stats</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          {[
+            { label: "总轮次 Rounds", val: stats.rounds},
+            { label: "总场次 Matches", val: stats.totalMatches},
+          ].map(s => (
+            <div key={s.label} style={{ ...S.card2, padding: 12, textAlign: "center" }}>
+              <div className={s.cls} style={{ fontSize: 28, fontWeight: 900 }}>{s.val}</div>
+              <div style={{ fontSize: 10, marginTop: 2 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11}}>
+            <span>对手覆盖率 Opponent Coverage</span><span className="c-green">{stats.opponentCoverage}%</span>
+          </div>
+          <CoverBar pct={stats.opponentCoverage} color="green" />
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginTop: 4 }}>
+            <span>队友覆盖率 Partner Coverage</span><span className="c-sky">{stats.teammateCoverage}%</span>
+          </div>
+          <CoverBar pct={stats.teammateCoverage} color="blue" />
+        </div>
+
+        {/* Per-player game spread */}
+        {stats.perPlayer && stats.perPlayer.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 8, borderTop: "1px solid rgba(0,0,0,0.05)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={S.label}>场次分布 Games Distribution</span>
+              <span style={{ fontSize: 11}}>
+                <span style={{ fontWeight: 700 }}>avg {stats.avgGames}</span>
+                <span style={{ margin: "0 4px" }}>·</span>
+                <span>min {stats.minGames} / max {stats.maxGames}</span>
+              </span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {[...stats.perPlayer].sort((a,b) => b.games - a.games).map(p => (
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 11, width: 52, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                  <div style={{ flex: 1, height: 8, background: "rgba(0,0,0,0.05)", borderRadius: 999, overflow: "hidden" }}>
+                    <div style={{
+                      height: "100%", borderRadius: 999, transition: "width .7s",
+                      width: stats.maxGames > 0 ? `${(p.games/stats.maxGames)*100}%` : "0%",
+                      background: p.games === stats.maxGames ? EMERALD : p.games === stats.minGames && stats.minGames < stats.maxGames ? AMBER : "rgba(22,163,74,0.45)",
+                    }} />
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 700, width: 20, textAlign: "right"}}>{p.games}</span>
+                </div>
+              ))}
+            </div>
+            {stats.maxGames - stats.minGames <= 1 && stats.perPlayer.length > 1 && (
+              <div style={{ fontSize: 10, background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.15)", borderRadius: 8, padding: "6px 12px" }}>
+                ✓ 场次非常均衡 Highly even game distribution
+              </div>
+            )}
+          </div>
+        )}
+
+        {matchMode === "balanced" && (
+          <div style={{ fontSize: 10, background: "rgba(109,40,217,0.08)", border: "1px solid rgba(139,92,246,0.20)", borderRadius: 8, padding: "8px 12px" }}>
+            ⚖️ 已按技术水平排序，每场对战水平差距最小化<br/>
+            <span style={{ opacity: 0.7 }}>Sorted by skill level — each match minimises the skill gap.</span>
+          </div>
+        )}
+        {hasBorrow && (
+          <div style={{ fontSize: 10, background: "rgba(217,119,6,0.10)", border: "1px solid rgba(217,119,6,0.18)", borderRadius: 8, padding: "8px 12px" }}>
+            ★ 性别人数不均，已从多数方借调球员参与混双<br/>
+            <span style={{ opacity: 0.7 }}>Uneven gender count — players subbed in from the larger group (★).</span>
+          </div>
+        )}
+      </div>
+
+      {/* Rounds header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 4px" }}>
+        <div style={S.label}>完整赛程 Full Schedule</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {onRegenerate && (
+            <button onClick={onRegenerate} style={{ fontSize: 11, background: "none", border: "none", cursor: "pointer", fontWeight: 500 }}>
+              ↻ 重新生成 Regenerate
+            </button>
+          )}
+          <button onClick={() => setShowShare(true)} style={{
+            display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700,
+            background: "rgba(22,163,74,0.12)", border: "1px solid rgba(34,197,94,0.30)", padding: "4px 10px", borderRadius: 8, cursor: "pointer",
+          }} className="c-dark-green">↑ 分享 Share</button>
+        </div>
+      </div>
+
+      {/* Round accordions */}
+      {rounds.map((round, ri) => (
+        <div key={ri} style={{ border: "1px solid rgba(0,0,0,0.07)", borderRadius: 12, overflow: "hidden" }}>
+          <button onClick={() => setOpen(open === ri ? -1 : ri)} style={{
+            width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "10px 16px",
+            background: "rgba(0,0,0,0.03)", border: "none", cursor: "pointer", textAlign: "left",
+          }}>
+            <span style={{
+              width: 24, height: 24, borderRadius: "50%", flexShrink: 0, fontSize: 12, fontWeight: 900,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: "rgba(22,163,74,0.15)", border: "1px solid rgba(34,197,94,0.30)",
+            }} className="c-dark-green">{ri + 1}</span>
+            <span style={{ flex: 1, fontSize: 14, fontWeight: 700}}>第 {ri+1} 轮 Round {ri+1}</span>
+            <span style={{ fontSize: 12}}>{round.length} 场 matches</span>
+            <span style={{ fontSize: 12 }}>{open === ri ? "▲" : "▼"}</span>
+          </button>
+          {open === ri && (
+            <div style={{ padding: "8px 12px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+              {round.map((match, mi) => {
+                const diff = Math.abs(teamSkill(match.teamA) - teamSkill(match.teamB)).toFixed(1);
+                return (
+                  <div key={mi} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,0.03)", border: "1px solid rgba(0,0,0,0.04)", borderRadius: 8, padding: "8px 12px" }}>
+                    <span style={{ fontSize: 10, fontFamily: "monospace", width: 16, flexShrink: 0 }}>{mi+1}</span>
+                    <div style={{ display: "flex", gap: 3, flex: 1, flexWrap: "wrap" }}>
+                      {match.teamA.map(p => <Chip key={p.id} player={p} />)}
+                    </div>
+                    <div style={{ flexShrink: 0, textAlign: "center" }}>
+                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: 2 }}>VS</div>
+                      {matchMode === "balanced" && <div style={{ fontSize: 8}}>Δ{diff}</div>}
+                    </div>
+                    <div style={{ display: "flex", gap: 3, flex: 1, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      {match.teamB.map(p => <Chip key={p.id} player={p} />)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   TARGET GAMES INPUT COMPONENT
+═══════════════════════════════════════════════════════════ */
+function TargetGamesInput({ value, onChange }) {
+  return (
+    <div style={{ ...S.card, padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700}}>人均场次目标</div>
+          <div style={{ fontSize: 10}}>
+            Target Per Person · <span className="c-amber">hard cap {value + 5}</span>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => onChange(Math.max(1, value - 1))}
+            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>−</button>
+          <span style={{ fontSize: 28, fontWeight: 900, width: 40, textAlign: "center" }}>{value}</span>
+          <button onClick={() => onChange(Math.min(30, value + 1))}
+            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>+</button>
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <input type="range" min={1} max={20} value={value}
+          onChange={e => onChange(+e.target.value)}
+          style={{ width: "100%", accentColor: AMBER, cursor: "pointer" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9}}>
+          <span>1 game</span><span>10</span><span>20 games</span>
+        </div>
+      </div>
+      <div style={{ fontSize: 10, background: "rgba(0,0,0,0.03)", borderRadius: 8, padding: "6px 12px", lineHeight: 1.6 }}>
+        <div>优先级：① 硬上限(target+5) → ② 总场次均衡 → ③ 配对新鲜度 → ④ 个人最高场次</div>
+        <div style={{ opacity: 0.6 }}>Priority: ① Hard cap · ② Total load · ③ Novelty · ④ Individual max</div>
+      </div>
+    </div>
+  );
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   BASIC PANEL
+═══════════════════════════════════════════════════════════ */
+function BasicPanel() {
+  const [numM, setNumM] = useState(4);
+  const [numF, setNumF] = useState(4);
+  const [mode, setMode] = useState("mixed");
+  const [targetGames, setTargetGames] = useState(5);
+  const [result, setResult] = useState(null);
+
+  function generate() {
+    const males   = Array.from({ length: numM }, (_, i) => ({ id: `M${i+1}`, name: `男${i+1}`, gender: "M" }));
+    const females = Array.from({ length: numF }, (_, i) => ({ id: `F${i+1}`, name: `女${i+1}`, gender: "F" }));
+    const allMatches = getAllMatches(mode, males, females);
+    if (!allMatches.length) return;
+    const rounds = scheduleRoundRobin(allMatches, targetGames);
+    const rel = mode === "mixed" ? [...males, ...females] : mode.includes("mens") ? males : females;
+    setResult({ rounds, stats: computeStats(rounds, rel) });
+  }
+
+  const modeInfo = MODES.find(m => m.id === mode);
+  const ok = mode === "mixed"
+    ? (numM >= 1 && numF >= 1)
+    : (numM >= (modeInfo?.needM||0) && numF >= (modeInfo?.needF||0));
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* M/F counters */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {[
+          { label: "男生人数\nMale Players", val: numM, set: setNumM, bg: SKY_L, border: "rgba(2,132,199,0.25)" },
+          { label: "女生人数\nFemale Players", val: numF, set: setNumF, bg: ROSE_L, border: "rgba(225,29,72,0.25)" },
+        ].map(({ label, val, set, color, bg, border }) => (
+          <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 16, padding: 16 }}>
+            <div style={{ fontSize: 11, marginBottom: 12, fontWeight: 500, whiteSpace: "pre-line", lineHeight: 1.4 }}>{label}</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <button onClick={() => set(Math.max(0, val-1))} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>−</button>
+              <span style={{ fontSize: 36, fontWeight: 900, color }}>{val}</span>
+              <button onClick={() => set(Math.min(20, val+1))} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>+</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <TargetGamesInput value={targetGames} onChange={setTargetGames} />
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={S.label}>比赛模式 Game Mode</div>
+        {MODES.map(m => {
+          const disabled = m.id !== "mixed" && (numM < m.needM || numF < m.needF);
+          const showBorrow = m.id === "mixed" && numM !== numF && !disabled;
+          return <ModeBtn key={m.id} m={m} active={mode===m.id} disabled={disabled} showBorrow={showBorrow} onClick={() => !disabled && setMode(m.id)} />;
+        })}
+      </div>
+
+      <button onClick={generate} disabled={!ok} style={{
+        width: "100%", padding: "14px 0", borderRadius: 16, fontWeight: 900, fontSize: 14,
+        background: ok ? EMERALD : "rgba(0,0,0,0.05)",
+        border: "none", cursor: ok ? "pointer" : "not-allowed", letterSpacing: 1,
+      }} className={ok ? "c-white" : "c-dim"}>🏸 生成赛程 Generate Schedule</button>
+
+      {result && <ResultView result={result} matchMode="random" onRegenerate={generate} />}
+    </div>
+  );
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   ADVANCED PANEL
+═══════════════════════════════════════════════════════════ */
+function AdvancedPanel() {
+  const [players, setPlayers] = useState([]);
+  const [ready, setReady] = useState(false);
+  const [subTab, setSubTab] = useState("roster");
+  const [form, setForm] = useState({ name: "", gender: "M", skill: 5 });
+  const [editId, setEditId] = useState(null);
+  const [mode, setMode] = useState("mixed");
+  const [matchMode, setMatchMode] = useState("random");
+  const [targetGames, setTargetGames] = useState(5);
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = { value: localStorage.getItem("bmt_players") };
+        if (r?.value) setPlayers(JSON.parse(r.value));
+      } catch {}
+      setReady(true);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    localStorage.setItem("bmt_players", JSON.stringify(players));
+  }, [players, ready]);
+
+  const males   = players.filter(p => p.gender === "M");
+  const females = players.filter(p => p.gender === "F");
+
+  function addPlayer() {
+    if (!form.name.trim()) return;
+    setPlayers(prev => [...prev, { id: uid(), name: form.name.trim(), gender: form.gender, skill: form.skill }]);
+    setForm(f => ({ ...f, name: "", skill: 5 }));
+  }
+  function delPlayer(id) { setPlayers(prev => prev.filter(p => p.id !== id)); }
+  function updPlayer(id, k, v) { setPlayers(prev => prev.map(p => p.id === id ? { ...p, [k]: v } : p)); }
+
+  function generate() {
+    const ms = males.map(p => ({ ...p }));
+    const fs = females.map(p => ({ ...p }));
+    const all = getAllMatches(mode, ms, fs);
+    if (!all.length) return;
+    const rounds = matchMode === "balanced" ? scheduleBalanced(all, targetGames) : scheduleRoundRobin(all, targetGames);
+    const rel = mode === "mixed" ? [...ms, ...fs] : mode.includes("mens") ? ms : fs;
+    setResult({ rounds, stats: computeStats(rounds, rel) });
+    setSubTab("schedule");
+  }
+
+  const modeInfo = MODES.find(m => m.id === mode);
+  const ok = mode === "mixed"
+    ? (males.length >= 1 && females.length >= 1)
+    : (males.length >= (modeInfo?.needM||0) && females.length >= (modeInfo?.needF||0));
+
+  if (!ready) return <div style={{ textAlign: "center", padding: "48px 0", fontSize: 14 }}>加载中… Loading</div>;
+
+  const tabBtn = (id, label) => (
+    <button key={id} onClick={() => setSubTab(id)} style={{
+      flex: 1, padding: "8px 0", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer",
+      background: subTab === id ? EMERALD : "transparent",
+      
+    }}>{label}</button>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Sub-tabs */}
+      <div style={{ display: "flex", gap: 4, background: "rgba(0,0,0,0.04)", padding: 4, borderRadius: 14, border: "1px solid rgba(0,0,0,0.05)" }}>
+        {tabBtn("roster", `名册 Roster (${players.length})`)}
+        {tabBtn("schedule", "赛程安排 Schedule")}
+      </div>
+
+      {subTab === "roster" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Add form */}
+          <div style={{ ...S.card, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={S.label}>添加球员 Add Player</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))}
+                onKeyDown={e => e.key === "Enter" && addPlayer()}
+                placeholder="球员名字 Player name"
+                style={{ flex: 1, background: "rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, padding: "10px 12px", fontSize: 14, outline: "none" }} />
+              <div style={{ display: "flex", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(0,0,0,0.08)" }}>
+                {["M","F"].map(g => (
+                  <button key={g} onClick={() => setForm(f => ({...f, gender: g}))} style={{
+                    padding: "8px 12px", fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer",
+                    background: form.gender === g ? (g==="M" ? "#0ea5e9" : "#f43f5e") : "rgba(0,0,0,0.04)",
+                    
+                  }}>{g==="M"?"男 M":"女 F"}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                <span style={S.text3}>技术水平 Skill Level</span>
+                <span style={{ fontWeight: 700 }}>Lv{form.skill} · {SKILL_LABELS[form.skill]}</span>
+              </div>
+              <input type="range" min={1} max={10} value={form.skill}
+                onChange={e => setForm(f => ({...f, skill: +e.target.value}))}
+                style={{ width: "100%", accentColor: EMERALD, cursor: "pointer" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9}}>
+                <span>1 Beginner</span><span>5 Intermediate</span><span>10 Champion</span>
+              </div>
+            </div>
+            <button onClick={addPlayer} disabled={!form.name.trim()} style={{
+              width: "100%", padding: "10px 0", borderRadius: 12, fontWeight: 700, fontSize: 14, border: "none",
+              background: form.name.trim() ? EMERALD : "rgba(0,0,0,0.05)",
+              cursor: form.name.trim() ? "pointer" : "not-allowed",
+            }} className={form.name.trim() ? "c-white" : "c-dim"}>+ 添加球员 Add Player</button>
+          </div>
+
+          {players.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 0", fontSize: 14, lineHeight: 2 }}>暂无球员，请添加<br/>No players yet — add some above</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "0 4px" }}>
+                <span style={{ fontSize: 11, ...S.text3 }}>男 Male {males.length} · 女 Female {females.length}</span>
+                <button onClick={() => { if(window.confirm("清空全部球员？\nClear all players?")) setPlayers([]); }}
+                  style={{ fontSize: 11, background: "none", border: "none", cursor: "pointer" }}>清空 Clear All</button>
+              </div>
+              {players.map(p => (
+                <div key={p.id} style={{ ...S.card, padding: 12 }}>
+                  {editId === p.id ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input value={p.name} onChange={e => updPlayer(p.id, "name", e.target.value)}
+                          style={{ flex: 1, background: "rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 8, padding: "6px 10px", fontSize: 14, outline: "none" }} />
+                        <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: "1px solid rgba(0,0,0,0.08)" }}>
+                          {["M","F"].map(g => (
+                            <button key={g} onClick={() => updPlayer(p.id, "gender", g)} style={{
+                              padding: "6px 10px", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer",
+                              background: p.gender===g ? (g==="M" ? "#0ea5e9" : "#f43f5e") : "rgba(0,0,0,0.04)",
+                              
+                            }}>{g==="M"?"男":"女"}</button>
+                          ))}
+                        </div>
+                        <button onClick={() => setEditId(null)} style={{ padding: "6px 12px", background: "rgba(22,163,74,0.15)", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }} className="c-dark-green">完成</button>
+                      </div>
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+                          <span style={S.text3}>Lv{p.skill}</span>
+                          <span className="c-green">{SKILL_LABELS[p.skill]}</span>
+                        </div>
+                        <input type="range" min={1} max={10} value={p.skill}
+                          onChange={e => updPlayer(p.id, "skill", +e.target.value)}
+                          style={{ width: "100%", accentColor: EMERALD, cursor: "pointer" }} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{
+                        width: 28, height: 28, borderRadius: "50%", flexShrink: 0, fontSize: 10, fontWeight: 900,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        background: p.gender==="M" ? "rgba(56,189,248,0.25)" : "rgba(251,113,133,0.25)",
+                        
+                      }}>{p.gender}</span>
+                      <span style={{ flex: 1, fontWeight: 500, fontSize: 14 }}>{p.name}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                        {Array.from({length:10},(_,i) => (
+                          <div key={i} style={{ width: 4, height: 12, borderRadius: 2, background: i < p.skill ? EMERALD : "rgba(0,0,0,0.07)" }} />
+                        ))}
+                        <span style={{ fontSize: 10, fontWeight: 700, marginLeft: 6 }}>Lv{p.skill}</span>
+                      </div>
+                      <button onClick={() => setEditId(p.id)} style={{ background: "none", border: "none", fontSize: 14, cursor: "pointer", padding: "0 6px" }}>✏️</button>
+                      <button onClick={() => delPlayer(p.id)} style={{ background: "none", border: "none", fontSize: 14, cursor: "pointer", padding: "0 6px" }}>✕</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {subTab === "schedule" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ ...S.card, padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Game mode */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={S.label}>比赛模式 Game Mode</div>
+              {MODES.map(m => {
+                const disabled = m.id !== "mixed" && (males.length < m.needM || females.length < m.needF);
+                const showBorrow = m.id === "mixed" && males.length !== females.length && !disabled;
+                return <ModeBtn key={m.id} m={m} active={mode===m.id} disabled={disabled} showBorrow={showBorrow} onClick={() => !disabled && setMode(m.id)} />;
+              })}
+            </div>
+
+            {/* Match mode */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={S.label}>匹配方式 Matching Mode</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {[
+                  { id:"random",   icon:"🔀", label:"随机匹配",  en:"Random Match",    desc:"最大化覆盖率" },
+                  { id:"balanced", icon:"⚖️", label:"能力匹配",  en:"Skill-Balanced",  desc:"相近水平对决" },
+                ].map(opt => (
+                  <button key={opt.id} onClick={() => setMatchMode(opt.id)} style={{
+                    padding: 12, borderRadius: 12, border: `1px solid ${matchMode===opt.id ? "rgba(139,92,246,0.40)" : "rgba(0,0,0,0.07)"}`,
+                    background: matchMode===opt.id ? "rgba(109,40,217,0.10)" : "rgba(0,0,0,0.04)",
+                    
+                    textAlign: "left", cursor: "pointer",
+                  }}>
+                    <div style={{ fontSize: 18 }}>{opt.icon}</div>
+                    <div style={{ fontWeight: 700, fontSize: 14, marginTop: 4 }}>{opt.label}</div>
+                    <div style={{ fontSize: 10, opacity: 0.7 }}>{opt.en}</div>
+                    <div style={{ fontSize: 10, opacity: 0.4, marginTop: 2 }}>{opt.desc}</div>
+                  </button>
+                ))}
+              </div>
+              {matchMode === "balanced" && players.length > 0 && (
+                <div style={{ fontSize: 10, background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.18)", borderRadius: 8, padding: "8px 12px", lineHeight: 1.6 }}>
+                  ℹ️ 能力匹配模式需要球员有不同的技术等级才能充分发挥效果<br/>
+                  <span style={{ opacity: 0.7 }}>Works best when players have varied skill levels.</span>
+                </div>
+              )}
+            </div>
+
+            <TargetGamesInput value={targetGames} onChange={setTargetGames} />
+
+            <button onClick={generate} disabled={!ok || players.length < 2} style={{
+              width: "100%", padding: "14px 0", borderRadius: 12, fontWeight: 900, fontSize: 14, border: "none",
+              background: (ok && players.length >= 2) ? EMERALD : "rgba(0,0,0,0.05)",
+              
+              cursor: (ok && players.length >= 2) ? "pointer" : "not-allowed",
+            }} className={(ok && players.length >= 2) ? "c-white" : "c-dim"}>🏸 生成赛程 Generate Schedule</button>
+          </div>
+
+          {result && <ResultView result={result} matchMode={matchMode} onRegenerate={generate} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   SHARE MODAL
+═══════════════════════════════════════════════════════════ */
+function ShareModal({ result, matchMode, onClose }) {
+  const [shareTab, setShareTab] = useState("link");
+  const [copied, setCopied] = useState(false);
+  const [pdfStatus, setPdfStatus] = useState("idle");
+
+  // Encode schedule into a URL-safe base64 string
+  const shareData = { rounds: result.rounds, stats: result.stats, matchMode, ts: Date.now() };
+  let shareUrl = "";
+  try {
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(shareData))));
+    shareUrl = `${window.location.href.split("#")[0]}#share=${encoded}`;
+  } catch {}
+
+  function copyLink() {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }).catch(() => {
+      // Fallback
+      const ta = document.createElement("textarea");
+      ta.value = shareUrl;
+      document.body.appendChild(ta);
+      ta.select(); document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
+  }
+
+  function openPDF() {
+    setPdfStatus("loading");
+    const { rounds, stats } = result;
+    const hasBorrow = rounds.some(r => r.some(m => [...m.teamA, ...m.teamB].some(p => p.borrowed)));
+
+    function playerLabel(p) {
+      return `${p.name}${p.borrowed ? "★" : ""}${p.skill !== undefined ? ` (L${p.skill})` : ""}`;
+    }
+    function teamLabel(team) { return team.map(playerLabel).join(" / "); }
+
+    const roundRows = rounds.map((round, ri) => {
+      const matchRows = round.map((m, mi) => {
+        const diff = Math.abs((m.teamA.reduce((s,p)=>s+(p.skill??5),0)/m.teamA.length) -
+                              (m.teamB.reduce((s,p)=>s+(p.skill??5),0)/m.teamB.length)).toFixed(1);
+        return `<tr class="match-row">
+          <td class="match-num">${mi + 1}</td>
+          <td class="team-a">${teamLabel(m.teamA)}</td>
+          <td class="vs">VS</td>
+          <td class="team-b">${teamLabel(m.teamB)}</td>
+          ${matchMode === "balanced" ? `<td class="diff">Δ${diff}</td>` : "<td></td>"}
+        </tr>`;
+      }).join("");
+      return `<tbody>
+        <tr class="round-header">
+          <td colspan="5">第 ${ri+1} 轮 Round ${ri+1} · ${round.length} 场 matches</td>
+        </tr>
+        ${matchRows}
+      </tbody>`;
+    }).join("");
+
+    const perPlayerRows = (stats.perPlayer || [])
+      .sort((a,b) => b.games - a.games)
+      .map(p => `<tr><td>${p.name}</td><td class="games-val">${p.games}</td></tr>`)
+      .join("");
+
+    const html = `<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8"/>
+<title>羽毛球赛程 Badminton Schedule</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
+         background: #fff; color: #1a1a1a; padding: 24px; font-size: 13px; }
+  h1 { font-size: 22px; font-weight: 900; margin-bottom: 4px; }
+  .subtitle { color: #666; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 20px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 20px; }
+  .stat-card { border: 1px solid #e5e5e5; border-radius: 10px; padding: 10px; text-align: center; }
+  .stat-val { font-size: 24px; font-weight: 900; color: #16a34a; }
+  .stat-label { font-size: 10px; color: #888; margin-top: 2px; }
+  h2 { font-size: 14px; font-weight: 700; margin: 16px 0 8px; border-bottom: 2px solid #16a34a; padding-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .round-header td { background: #f0fdf4; font-weight: 700; color: #15803d;
+                     padding: 7px 10px; border-top: 1px solid #bbf7d0; border-bottom: 1px solid #bbf7d0; font-size: 11px; }
+  .match-row td { padding: 6px 10px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+  .match-row:hover td { background: #fafafa; }
+  .match-num { color: #aaa; width: 24px; }
+  .team-a, .team-b { font-weight: 600; }
+  .team-b { text-align: right; }
+  .vs { text-align: center; font-weight: 900; color: #16a34a; font-size: 11px; width: 28px; }
+  .diff { text-align: right; color: #999; font-size: 10px; width: 32px; }
+  .dist-table { width: auto; max-width: 320px; }
+  .dist-table td { padding: 4px 10px; border-bottom: 1px solid #f3f4f6; }
+  .games-val { font-weight: 700; color: #16a34a; text-align: right; }
+  .note { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px;
+           padding: 8px 12px; font-size: 11px; color: #92400e; margin-top: 12px; }
+  .footer { margin-top: 24px; text-align: center; font-size: 10px; color: #ccc; }
+  @media print { body { padding: 16px; } }
+</style>
+</head>
+<body>
+<div style="text-align:center;margin-bottom:24px;">
+  <div style="font-size:36px;margin-bottom:6px;">🏸</div>
+  <h1>羽毛球赛程安排</h1>
+  <p class="subtitle">Badminton Match Schedule · ${new Date().toLocaleDateString("zh-CN")}</p>
+</div>
+<div class="stats-grid">
+  <div class="stat-card"><div class="stat-val">${stats.rounds}</div><div class="stat-label">轮次 Rounds</div></div>
+  <div class="stat-card"><div class="stat-val">${stats.totalMatches}</div><div class="stat-label">总场次 Matches</div></div>
+  <div class="stat-card"><div class="stat-val">${stats.opponentCoverage}%</div><div class="stat-label">对手覆盖 Opp.</div></div>
+  <div class="stat-card"><div class="stat-val">${stats.teammateCoverage}%</div><div class="stat-label">队友覆盖 Partner</div></div>
+</div>
+${hasBorrow ? `<div class="note">★ 性别人数不均，已借调球员参与混双 · Uneven gender count — players subbed in (★)</div>` : ""}
+<h2>完整赛程 Full Schedule</h2>
+<table>${roundRows}</table>
+${perPlayerRows ? `<h2>场次分布 Games Distribution · avg ${stats.avgGames} · min ${stats.minGames} / max ${stats.maxGames}</h2>
+<table class="dist-table"><tbody>${perPlayerRows}</tbody></table>` : ""}
+<div class="footer">Generated by 羽毛球赛程安排 Badminton Match Scheduler</div>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank", "width=800,height=900");
+    if (!win) { setPdfStatus("idle"); return; }
+    win.document.write(html);
+    win.document.close();
+    win.onload = () => {
+      setTimeout(() => {
+        win.focus();
+        win.print();
+        setPdfStatus("done");
+        setTimeout(() => setPdfStatus("idle"), 2000);
+      }, 300);
+    };
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 16, background: "rgba(0,0,0,0.80)" }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ width: "100%", maxWidth: 400, background: BG2, border: "1px solid rgba(0,0,0,0.08)", borderRadius: 24, padding: 20, display: "flex", flexDirection: "column", gap: 16, boxShadow: "0 24px 60px rgba(0,0,0,0.8)" }}>
+        <style>{`@keyframes slideUp { from { transform:translateY(40px); opacity:0 } to { transform:translateY(0); opacity:1 } }`}</style>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontWeight: 900, fontSize: 18 }}>分享赛程</div>
+            <div style={{ fontSize: 11}}>Share Schedule</div>
+          </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(0,0,0,0.07)", border: "none", cursor: "pointer", fontSize: 14 }}>✕</button>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 4, background: "rgba(0,0,0,0.04)", padding: 4, borderRadius: 14, border: "1px solid rgba(0,0,0,0.05)" }}>
+          {[
+            { id: "link", label: "🔗 App 链接 Link" },
+            { id: "pdf",  label: "📄 PDF 打印 Print" },
+          ].map(t => (
+            <button key={t.id} onClick={() => setShareTab(t.id)} style={{
+              flex: 1, padding: "8px 0", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer",
+              background: shareTab === t.id ? EMERALD : "transparent",
+              
+            }}>{t.label}</button>
+          ))}
+        </div>
+
+        {shareTab === "link" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ fontSize: 11, lineHeight: 1.7 }}>
+              赛程数据编码在链接中，发给任何人打开即可查看完整赛程。<br/>
+              <span style={{ opacity: 0.7 }}>Schedule data is encoded in the URL — anyone with the link can view it.</span>
+            </div>
+            <div style={{ background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 12, padding: "10px 12px", fontSize: 10, fontFamily: "monospace", wordBreak: "break-all", userSelect: "all" }}>
+              {shareUrl || "生成中… Generating…"}
+            </div>
+            <button onClick={copyLink} style={{
+              width: "100%", padding: "12px 0", borderRadius: 12, fontWeight: 900, fontSize: 14, border: "none", cursor: "pointer",
+              background: copied ? "#14532d" : EMERALD,
+            }}>{copied ? "✓ 已复制 Copied!" : "📋 复制链接 Copy Link"}</button>
+          </div>
+        )}
+
+        {shareTab === "pdf" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ fontSize: 11, lineHeight: 1.7 }}>
+              生成完整赛程的打印页面，可直接打印或保存为 PDF。<br/>
+              <span style={{ opacity: 0.7 }}>Opens a print-ready page — print directly or save as PDF.</span>
+            </div>
+            <div style={{ background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+              {[
+                `${result.stats.rounds} 轮 · ${result.stats.totalMatches} 场`,
+                `对手覆盖 ${result.stats.opponentCoverage}% · 队友覆盖 ${result.stats.teammateCoverage}%`,
+                result.stats.perPlayer?.length ? `${result.stats.perPlayer.length} 名球员场次分布` : null,
+              ].filter(Boolean).map((line, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11}}>
+                  <span className="c-green">→</span><span>{line}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={openPDF} disabled={pdfStatus === "loading"} style={{
+              width: "100%", padding: "12px 0", borderRadius: 12, fontWeight: 900, fontSize: 14, border: "none", cursor: pdfStatus === "loading" ? "not-allowed" : "pointer",
+              background: pdfStatus === "done" ? "#14532d" : pdfStatus === "loading" ? "rgba(0,0,0,0.07)" : "#0ea5e9",
+              
+            }}>
+              {pdfStatus === "done" ? "✓ 已打开 Opened!" : pdfStatus === "loading" ? "⏳ 生成中…" : "📄 打开打印页面 Open Print Page"}
+            </button>
+            <div style={{ textAlign: "center", fontSize: 10}}>在弹出页面选择 "另存为 PDF" Save as PDF 即可</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SHARED VIEW (opened via link)
+═══════════════════════════════════════════════════════════ */
+function SharedView({ data }) {
+  useForceDarkBg();
+  return (
+    <div className="bmt" style={{ background: BG, minHeight: "100vh", fontFamily: "'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" }}>
+      <BmtStyles />
+      <div style={{ maxWidth: 400, margin: "0 auto", padding: "32px 16px 64px" }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <div style={{ fontSize: 36, marginBottom: 6 }}>🏸</div>
+          <h1 style={{ fontSize: 20, fontWeight: 900, margin: 0 }}>羽毛球赛程</h1>
+          <p className="c-dim" style={{ fontSize: 11, marginTop: 4, letterSpacing: 2 }}>SHARED BADMINTON SCHEDULE</p>
+          <div className="c-dark-green" style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(22,163,74,0.10)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 999, padding: "4px 12px", fontSize: 11 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: EMERALD, display: "inline-block" }}></span>
+            只读分享视图 Read-only shared view
+          </div>
+        </div>
+        <ResultView result={data} matchMode={data.matchMode} onRegenerate={null} />
+        <div style={{ textAlign: "center", marginTop: 32 }}>
+          <a href={window.location.href.split("#")[0]}
+            className="c-white"
+            style={{ display: "inline-block", padding: "10px 20px", borderRadius: 12, background: EMERALD, fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
+            🏸 创建我的赛程 Make My Own
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function App() {
+  useForceDarkBg();
+  const [tab, setTab] = useState("basic");
+  const [sharedData, setSharedData] = useState(null);
+
+  useEffect(() => {
+    try {
+      const hash = window.location.hash;
+      if (hash.startsWith("#share=")) {
+        const encoded = hash.slice(7);
+        const data = JSON.parse(decodeURIComponent(escape(atob(encoded))));
+        if (data?.rounds && data?.stats) setSharedData(data);
+      }
+    } catch {}
+  }, []);
+
+  if (sharedData) return <SharedView data={sharedData} />;
+
+  return (
+    <div className="bmt" style={{ background: BG, minHeight: "100vh", fontFamily: "'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" }}>
+      <BmtStyles />
+      <div style={{ maxWidth: 400, margin: "0 auto", padding: "32px 16px 64px" }}>
+        {/* Header */}
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>🏸</div>
+          <h1 style={{ fontSize: 24, fontWeight: 900, margin: 0, letterSpacing: -0.5 }}>羽毛球赛程安排</h1>
+          <p className="c-dim" style={{ fontSize: 11, marginTop: 4, letterSpacing: 3 }}>BADMINTON MATCH SCHEDULER</p>
+        </div>
+
+        {/* Mode toggle */}
+        <div style={{ display: "flex", gap: 4, background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.05)", padding: 4, borderRadius: 18, marginBottom: 24 }}>
+          {[
+            { id: "basic",    label: "⚡ 快速模式 Quick" },
+            { id: "advanced", label: "🎯 高级模式 Advanced" },
+          ].map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={tab === t.id ? "c-white" : "c-muted"}
+              style={{
+                flex: 1, padding: "10px 0", borderRadius: 14, fontSize: 13, fontWeight: 900, border: "none", cursor: "pointer",
+                background: tab === t.id ? EMERALD : "transparent",
+              }}>{t.label}</button>
+          ))}
+        </div>
+
+        {tab === "basic"    && <BasicPanel />}
+        {tab === "advanced" && <AdvancedPanel />}
+
+        <div className="c-dim" style={{ textAlign: "center", fontSize: 9, marginTop: 40, letterSpacing: 3, textTransform: "uppercase" }}>
+          覆盖优化 Coverage · 水平匹配 Skill Balance · 性别借位 Gender Sub-in
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+    // Mount
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
