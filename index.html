@@ -350,7 +350,20 @@ const MODES = [
   { id: "mens_singles",   label: "男子单打", en: "Men's Singles",   icon: "🔥", needM: 2, needF: 0 },
   { id: "womens_singles", label: "女子单打", en: "Women's Singles", icon: "✨", needM: 0, needF: 2 },
 ];
-const SKILL_LABELS = ["","新手 Beginner","入门 Novice","初级 Basic","初中 Pre-Inter","中级 Inter","中高 Upper-Inter","高级 Advanced","精英 Elite","大师 Master","冠军 Champion"];
+const SKILL_LABELS = {
+  1:   "新手 Beginner",
+  1.5: "新手+ Beginner+",
+  2:   "入门 Novice",
+  2.5: "入门+ Novice+",
+  3:   "初级 Basic",
+  3.5: "初级+ Basic+",
+  4:   "初中 Pre-Inter",
+  4.5: "初中+ Pre-Inter+",
+  5:   "中级 Inter",
+  5.5: "中级+ Inter+",
+  6:   "中高 Upper-Inter",
+};
+function skillLabel(v) { return SKILL_LABELS[v] || SKILL_LABELS[Math.round(v*2)/2] || ""; }
 
 /* ═══════════════════════════════════════════════════════════
    SHARED UI ATOMS
@@ -1066,7 +1079,7 @@ function AdvancedPanel() {
   const [roomScreen, setRoomScreen] = useState("join"); // join | room
   const [ready, setReady] = useState(false);
   const [subTab, setSubTab] = useState("roster");
-  const [form, setForm] = useState({ name: "", gender: "M", skill: 5 });
+  const [form, setForm] = useState({ name: "", gender: "M", skill: 3 });
   const [editId, setEditId] = useState(null);
   const [showQuiz, setShowQuiz] = useState(false);
   const [mode, setMode] = useState("mixed");
@@ -1156,7 +1169,7 @@ function AdvancedPanel() {
     const next = [...players, newP];
     setPlayers(next);
     saveRoom(next);
-    setForm(f => ({ ...f, name: "", skill: 5 }));
+    setForm(f => ({ ...f, name: "", skill: 3 }));
   }
   function delPlayer(id) {
     const next = players.filter(p => p.id !== id);
@@ -1300,13 +1313,13 @@ function AdvancedPanel() {
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
                 <span style={S.text3}>技术水平 Skill Level</span>
-                <span style={{ fontWeight: 700 }}>Lv{form.skill} · {SKILL_LABELS[form.skill]}</span>
+                <span style={{ fontWeight: 700 }}>Lv{form.skill} · {skillLabel(form.skill)}</span>
               </div>
-              <input type="range" min={1} max={10} value={form.skill}
-                onChange={e => setForm(f => ({...f, skill: +e.target.value}))}
+              <input type="range" min={2} max={12} step={1} value={form.skill * 2}
+                onChange={e => setForm(f => ({...f, skill: +e.target.value / 2}))}
                 style={{ width: "100%", accentColor: EMERALD, cursor: "pointer" }} />
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9}}>
-                <span>1 Beginner</span><span>5 Intermediate</span><span>10 Champion</span>
+                <span>Lv1 新手</span><span>Lv3.5</span><span>Lv6 中高</span>
               </div>
               <button onClick={() => setShowQuiz(true)} style={{
                 width: "100%", padding: "10px 0", borderRadius: 12, fontWeight: 700, fontSize: 13,
@@ -1349,10 +1362,10 @@ function AdvancedPanel() {
                       <div>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
                           <span style={S.text3}>Lv{p.skill}</span>
-                          <span className="c-green">{SKILL_LABELS[p.skill]}</span>
+                          <span className="c-green">{skillLabel(p.skill)}</span>
                         </div>
-                        <input type="range" min={1} max={10} value={p.skill}
-                          onChange={e => updPlayer(p.id, "skill", +e.target.value)}
+                        <input type="range" min={2} max={12} step={1} value={p.skill * 2}
+                          onChange={e => updPlayer(p.id, "skill", +e.target.value / 2)}
                           style={{ width: "100%", accentColor: EMERALD, cursor: "pointer" }} />
                       </div>
                     </div>
@@ -1367,7 +1380,8 @@ function AdvancedPanel() {
                       <span style={{ flex: 1, fontWeight: 500, fontSize: 14 }}>{p.name}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
                         {Array.from({length:10},(_,i) => (
-                          <div key={i} style={{ width: 4, height: 12, borderRadius: 2, background: i < p.skill ? EMERALD : "rgba(0,0,0,0.07)" }} />
+                          <div key={i} style={{ width: 4, height: 12, borderRadius: 2,
+                            background: i < Math.round(p.skill * 10/6) ? EMERALD : "rgba(0,0,0,0.07)" }} />
                         ))}
                         <span style={{ fontSize: 10, fontWeight: 700, marginLeft: 6 }}>Lv{p.skill}</span>
                       </div>
