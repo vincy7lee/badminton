@@ -25,197 +25,48 @@
 
 
 /* ═══════════════════════════════════════════════════════════
-   THEME SYSTEM
+   THEME — clean light palette, works in any host/iframe
+   All contrast ratios ≥ 4.5:1 (WCAG AA)
 ═══════════════════════════════════════════════════════════ */
-const THEMES = {
-  ocean: { id:"ocean", name:"🐋 海底", label:"Ocean",
-    BG:"#0a1628", BG2:"rgba(10,30,60,0.85)", BG3:"rgba(0,20,50,0.7)",
-    BORDER:"rgba(100,200,255,0.15)", TEXT:"#e0f4ff", ACCENT:"#00b4d8", ACCENT_L:"rgba(0,180,216,0.15)", dark:true },
-  night: { id:"night", name:"🌙 夜间", label:"Night",
-    BG:"#0f0f14", BG2:"rgba(25,25,35,0.95)", BG3:"rgba(15,15,25,0.8)",
-    BORDER:"rgba(255,255,255,0.08)", TEXT:"#e8e8f0", ACCENT:"#7c3aed", ACCENT_L:"rgba(124,58,237,0.20)", dark:true },
-  day: { id:"day", name:"☀️ 白天", label:"Day",
-    BG:"#f4f6f4", BG2:"#ffffff", BG3:"#eef1ee",
-    BORDER:"rgba(0,0,0,0.09)", TEXT:"#111a11", ACCENT:"#16a34a", ACCENT_L:"#dcfce7", dark:false },
-  stars: { id:"stars", name:"✨ 星空", label:"Stars",
-    BG:"#060818", BG2:"rgba(15,20,50,0.90)", BG3:"rgba(8,12,35,0.80)",
-    BORDER:"rgba(180,160,255,0.15)", TEXT:"#ddd8ff", ACCENT:"#a78bfa", ACCENT_L:"rgba(167,139,250,0.18)", dark:true },
-  dream: { id:"dream", name:"🌸 梦幻", label:"Dream",
-    BG:"#1a0a2e", BG2:"rgba(40,15,65,0.88)", BG3:"rgba(25,8,45,0.75)",
-    BORDER:"rgba(255,150,200,0.18)", TEXT:"#fce4ff", ACCENT:"#f472b6", ACCENT_L:"rgba(244,114,182,0.18)", dark:true },
-};
+const BG       = "#f4f6f4";   // page background — very light grey-green
+const BG2      = "#ffffff";   // card background
+const BG3      = "#eef1ee";   // input / sunken surface
+const BORDER   = "rgba(0,0,0,0.09)";
+const TEXT      = "#111a11";  // near-black — contrast vs BG ≈ 16:1
+const TEXT2     = "rgba(17,26,17,0.55)";
+const TEXT3     = "rgba(17,26,17,0.38)";
+const EMERALD   = "#16a34a";  // green-700
+const EMERALD_L = "#dcfce7";  // green-100 (chip / badge bg)
+const SKY       = "#0284c7";  // sky-600
+const SKY_L     = "#e0f2fe";
+const ROSE      = "#e11d48";  // rose-600
+const ROSE_L    = "#ffe4e6";
+const AMBER     = "#d97706";  // amber-600
+const AMBER_L   = "#fef3c7";
+const VIOLET    = "#7c3aed";  // violet-700
+const VIOLET_L  = "#ede9fe";
 
-function tTokens(T) {
-  return {
-    BG:T.BG, BG2:T.BG2, BG3:T.BG3, BORDER:T.BORDER, TEXT:T.TEXT,
-    EMERALD:T.ACCENT, EMERALD_L:T.ACCENT_L,
-    SKY:   T.dark?"#38bdf8":"#0284c7",  SKY_L: T.dark?"rgba(56,189,248,0.18)":"#e0f2fe",
-    ROSE:  T.dark?"#fb7185":"#e11d48",  ROSE_L:T.dark?"rgba(251,113,133,0.18)":"#ffe4e6",
-    AMBER: T.dark?"#fbbf24":"#d97706",  AMBER_L:T.dark?"rgba(251,191,36,0.15)":"#fef3c7",
-    VIOLET:T.dark?"#a78bfa":"#7c3aed",  VIOLET_L:T.dark?"rgba(167,139,250,0.18)":"#ede9fe",
-    muted: T.dark?"rgba(255,255,255,0.50)":"rgba(17,26,17,0.45)",
-    dim:   T.dark?"rgba(255,255,255,0.32)":"rgba(17,26,17,0.35)",
-  };
-}
+// No dark-forcing needed — light theme matches any host background
+function useForceDarkBg() {} // kept as no-op so call sites don't break
 
-// Init global tokens
-let _activeTheme = (() => { try { const s=localStorage.getItem("bmt_theme"); if(s&&THEMES[s])return THEMES[s]; } catch{} return THEMES.ocean; })();
-let _themeListeners = [];
-function useTheme() {
-  const [th, setTh] = useState(_activeTheme);
-  useEffect(() => { _themeListeners.push(setTh); return ()=>{ _themeListeners=_themeListeners.filter(x=>x!==setTh); }; }, []);
-  return th;
-}
-function applyTheme(t) {
-  _activeTheme = t;
-  const tok = tTokens(t);
-  BG=tok.BG; BG2=tok.BG2; BG3=tok.BG3; BORDER=tok.BORDER; TEXT=tok.TEXT;
-  TEXT2=tok.muted; TEXT3=tok.dim;
-  EMERALD=tok.EMERALD; EMERALD_L=tok.EMERALD_L;
-  SKY=tok.SKY; SKY_L=tok.SKY_L; ROSE=tok.ROSE; ROSE_L=tok.ROSE_L;
-  AMBER=tok.AMBER; AMBER_L=tok.AMBER_L; VIOLET=tok.VIOLET; VIOLET_L=tok.VIOLET_L;
-  _themeListeners.forEach(cb=>cb(t));
-  try { localStorage.setItem("bmt_theme", t.id); } catch {}
-}
-// Init tokens
-let BG,BG2,BG3,BORDER,TEXT,TEXT2,TEXT3,EMERALD,EMERALD_L,SKY,SKY_L,ROSE,ROSE_L,AMBER,AMBER_L,VIOLET,VIOLET_L;
-applyTheme(_activeTheme);
-
-function useForceDarkBg() {}
-
-/* Animated backgrounds */
-function OceanBg() {
-  return (
-    <div style={{position:"fixed",inset:0,zIndex:0,overflow:"hidden",pointerEvents:"none"}}>
-      <style>{`
-        @keyframes swim{0%{transform:translateX(-150px)}100%{transform:translateX(110vw)}}
-        @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
-        @keyframes bubble{0%{transform:translateY(0);opacity:0.7}100%{transform:translateY(-90vh);opacity:0}}
-        .wh{position:absolute;animation:swim linear infinite;}
-        .bbl{position:absolute;border-radius:50%;background:rgba(100,220,255,0.35);animation:bubble linear infinite;}
-        .sw{position:absolute;bottom:0;animation:bob ease-in-out infinite;}
-      `}</style>
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,#0a1628 0%,#0d2a4a 40%,#0a3d5c 70%,#062940 100%)"}}/>
-      <div className="wh" style={{top:"15%",fontSize:60,animationDuration:"26s"}}>🐋</div>
-      <div className="wh" style={{top:"55%",fontSize:22,animationDuration:"13s",animationDelay:"-6s"}}>🐟</div>
-      <div className="wh" style={{top:"40%",fontSize:18,animationDuration:"9s",animationDelay:"-3s"}}>🐠</div>
-      <div className="wh" style={{top:"70%",fontSize:20,animationDuration:"17s",animationDelay:"-10s"}}>🦑</div>
-      {[8,22,40,58,72,88].map((l,i)=>(
-        <div key={i} className="bbl" style={{left:`${l}%`,bottom:"2%",width:6+i%3*3,height:6+i%3*3,animationDuration:`${4+i*1.5}s`,animationDelay:`-${i*1.2}s`}}/>
-      ))}
-      {[4,18,80,94].map((l,i)=>(
-        <div key={i} className="sw" style={{left:`${l}%`,fontSize:32,animationDuration:`${3+i*0.6}s`,animationDelay:`-${i*0.7}s`}}>🌿</div>
-      ))}
-    </div>
-  );
-}
-
-function StarsBg() {
-  return (
-    <div style={{position:"fixed",inset:0,zIndex:0,overflow:"hidden",pointerEvents:"none"}}>
-      <style>{`
-        @keyframes twinkle{0%,100%{opacity:0.15}50%{opacity:1}}
-        @keyframes shoot{0%{transform:translateX(0) translateY(0);opacity:1}100%{transform:translateX(250px) translateY(130px);opacity:0}}
-        .star{position:absolute;border-radius:50%;background:white;animation:twinkle ease-in-out infinite;}
-        .shoot{position:absolute;width:2px;height:70px;background:linear-gradient(white,transparent);transform:rotate(35deg);animation:shoot 3s ease-in infinite;}
-      `}</style>
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,#060818 0%,#0d0f2b 50%,#12082a 100%)"}}/>
-      {Array.from({length:65},(_,i)=>(
-        <div key={i} className="star" style={{
-          left:`${(i*37+13)%100}%`,top:`${(i*53+7)%85}%`,
-          width:i%6===0?3:i%3===0?2:1.5,height:i%6===0?3:i%3===0?2:1.5,
-          animationDuration:`${1.5+i%5}s`,animationDelay:`-${(i*0.35)%4}s`}}/>
-      ))}
-      {[{l:"25%",t:"12%",d:"0s"},{l:"65%",t:"6%",d:"5s"},{l:"82%",t:"22%",d:"10s"}].map((s,i)=>(
-        <div key={i} className="shoot" style={{left:s.l,top:s.t,animationDelay:s.d}}/>
-      ))}
-      <div style={{position:"absolute",right:"10%",top:"18%",fontSize:30,opacity:0.8}}>🌙</div>
-    </div>
-  );
-}
-
-function NightBg() {
-  return (
-    <div style={{position:"fixed",inset:0,zIndex:0,pointerEvents:"none"}}>
-      <style>{`@keyframes glow{0%,100%{opacity:0.5}50%{opacity:0.9}}`}</style>
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,#0f0f14 0%,#1a1025 100%)"}}/>
-      <div style={{position:"absolute",top:"8%",right:"14%",fontSize:52,animation:"glow 4s ease-in-out infinite"}}>🌙</div>
-      <div style={{position:"absolute",bottom:"12%",left:"8%",fontSize:36,opacity:0.25}}>🏙️</div>
-      <div style={{position:"absolute",top:"25%",left:"6%",fontSize:12,opacity:0.6,animation:"glow 3s ease-in-out infinite",animationDelay:"-1s"}}>★</div>
-      <div style={{position:"absolute",top:"18%",left:"40%",fontSize:10,opacity:0.5,animation:"glow 5s ease-in-out infinite"}}>★</div>
-      <div style={{position:"absolute",top:"35%",right:"20%",fontSize:8,opacity:0.4,animation:"glow 4s ease-in-out infinite",animationDelay:"-2s"}}>★</div>
-    </div>
-  );
-}
-
-function DreamBg() {
-  return (
-    <div style={{position:"fixed",inset:0,zIndex:0,overflow:"hidden",pointerEvents:"none"}}>
-      <style>{`
-        @keyframes floatUp{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-18px) rotate(6deg)}}
-        @keyframes pulse2{0%,100%{opacity:0.08}50%{opacity:0.18}}
-        .petal{position:absolute;animation:floatUp ease-in-out infinite;}
-      `}</style>
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,#1a0a2e 0%,#2d1045 35%,#1a0a38 65%,#2a0a2e 100%)"}}/>
-      {[{l:"15%",t:"20%",c:"rgba(244,114,182,0.14)",s:220},{l:"65%",t:"55%",c:"rgba(167,139,250,0.11)",s:300},{l:"45%",t:"35%",c:"rgba(244,114,182,0.09)",s:380}].map((o,i)=>(
-        <div key={i} style={{position:"absolute",left:o.l,top:o.t,width:o.s,height:o.s,borderRadius:"50%",background:o.c,filter:"blur(55px)",animation:`pulse2 ${7+i*2}s ease-in-out infinite`,animationDelay:`-${i*2}s`}}/>
-      ))}
-      {["🌸","🌺","✨","💫","🦋","🌙","⭐","🌷","🍀","🌈"].map((e,i)=>(
-        <div key={i} className="petal" style={{left:`${(i*22+8)%92}%`,top:`${(i*29+5)%82}%`,fontSize:14+i%3*7,animationDuration:`${4+i*0.9}s`,animationDelay:`-${i*0.8}s`,opacity:0.55}}>{e}</div>
-      ))}
-    </div>
-  );
-}
-
-function ThemeBg({theme}) {
-  if(theme.id==="ocean") return <OceanBg/>;
-  if(theme.id==="stars") return <StarsBg/>;
-  if(theme.id==="night") return <NightBg/>;
-  if(theme.id==="dream") return <DreamBg/>;
-  return null;
-}
-
-function ThemeSwitcher({theme}) {
-  return (
-    <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:100,
-      display:"flex",justifyContent:"center",padding:"8px 8px 12px",
-      background:theme.dark?"rgba(0,0,0,0.65)":"rgba(255,255,255,0.88)",
-      backdropFilter:"blur(14px)",
-      borderTop:`1px solid ${theme.dark?"rgba(255,255,255,0.08)":"rgba(0,0,0,0.06)"}`}}>
-      <div style={{display:"flex",gap:4}}>
-        {Object.values(THEMES).map(t=>(
-          <button key={t.id} onClick={()=>applyTheme(t)}
-            style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,
-              padding:"5px 9px",borderRadius:12,border:"none",cursor:"pointer",
-              background:theme.id===t.id?(theme.dark?"rgba(255,255,255,0.15)":"rgba(0,0,0,0.09)"):"transparent",
-              outline:theme.id===t.id?`2px solid ${theme.ACCENT}`:"none",
-              transition:"all 0.2s"}}>
-            <span style={{fontSize:20}}>{t.name.split(" ")[0]}</span>
-            <span style={{fontSize:9,fontWeight:700,opacity:0.7,color:theme.dark?"#fff":"#333"}}>{t.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function BmtStyles({theme}) {
-  const d = theme.dark;
+/* Injected into every root render — defeats host iframe color:white !important */
+function BmtStyles() {
   return (
     <style>{`
-      .bmt { background: ${theme.BG} !important; color: ${theme.TEXT} !important; }
+      .bmt { background: #f4f6f4 !important; color: #111a11 !important; }
       .bmt * { color: inherit !important; box-sizing: border-box; }
       .bmt button { font-family: inherit !important; }
-      .bmt input  { font-family: inherit !important; color: ${theme.TEXT} !important; }
-      .bmt .c-sky    { color: ${d?"#38bdf8":"#0284c7"} !important; }
-      .bmt .c-rose   { color: ${d?"#fb7185":"#e11d48"} !important; }
-      .bmt .c-amber  { color: ${d?"#fbbf24":"#d97706"} !important; }
-      .bmt .c-green  { color: ${theme.ACCENT} !important; }
-      .bmt .c-violet { color: ${d?"#a78bfa":"#7c3aed"} !important; }
-      .bmt .c-muted  { color: ${d?"rgba(255,255,255,0.50)":"rgba(17,26,17,0.45)"} !important; }
-      .bmt .c-dim    { color: ${d?"rgba(255,255,255,0.32)":"rgba(17,26,17,0.35)"} !important; }
+      .bmt input  { font-family: inherit !important; color: #111a11 !important; }
+      /* colour overrides for intentionally-coloured elements */
+      .bmt .c-sky    { color: #0284c7 !important; }
+      .bmt .c-rose   { color: #e11d48 !important; }
+      .bmt .c-amber  { color: #d97706 !important; }
+      .bmt .c-green  { color: #16a34a !important; }
+      .bmt .c-violet { color: #7c3aed !important; }
+      .bmt .c-muted  { color: rgba(17,26,17,0.45) !important; }
+      .bmt .c-dim    { color: rgba(17,26,17,0.35) !important; }
       .bmt .c-white  { color: #ffffff !important; }
-      .bmt .c-dark-green { color: ${theme.ACCENT} !important; }
+      .bmt .c-dark-green { color: #14532d !important; }
     `}</style>
   );
 }
@@ -771,15 +622,9 @@ function BasicPanel() {
   const [targetGames, setTargetGames] = useState(5);
   const [result, setResult] = useState(null);
 
-  const modeInfo = MODES.find(m => m.id === mode);
-  const needsM = modeInfo?.needM > 0 || mode === "mixed";
-  const needsF = modeInfo?.needF > 0 || mode === "mixed";
-  const activeNumM = needsM ? numM : 0;
-  const activeNumF = needsF ? numF : 0;
-
   function generate() {
-    const males   = Array.from({ length: activeNumM }, (_, i) => ({ id: `M${i+1}`, name: `男${i+1}`, gender: "M" }));
-    const females = Array.from({ length: activeNumF }, (_, i) => ({ id: `F${i+1}`, name: `女${i+1}`, gender: "F" }));
+    const males   = Array.from({ length: numM }, (_, i) => ({ id: `M${i+1}`, name: `男${i+1}`, gender: "M" }));
+    const females = Array.from({ length: numF }, (_, i) => ({ id: `F${i+1}`, name: `女${i+1}`, gender: "F" }));
     const allMatches = getAllMatches(mode, males, females);
     if (!allMatches.length) return;
     const rounds = scheduleRoundRobin(allMatches, targetGames);
@@ -787,36 +632,28 @@ function BasicPanel() {
     setResult({ rounds, stats: computeStats(rounds, rel, mode) });
   }
 
+  const modeInfo = MODES.find(m => m.id === mode);
   const ok = mode === "mixed"
     ? (numM >= 1 && numF >= 1)
-    : (activeNumM >= (modeInfo?.needM||0) && activeNumF >= (modeInfo?.needF||0));
+    : (numM >= (modeInfo?.needM||0) && numF >= (modeInfo?.needF||0));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* M/F counters — only show relevant ones */}
-      <div style={{ display: "grid", gridTemplateColumns: needsM && needsF ? "1fr 1fr" : "1fr", gap: 12 }}>
-        {needsM && (
-          <div style={{ background: SKY_L, border: "1px solid rgba(2,132,199,0.25)", borderRadius: 16, padding: 16 }}>
-            <div style={{ fontSize: 11, marginBottom: 12, fontWeight: 500, whiteSpace: "pre-line", lineHeight: 1.4 }}>{"男生人数
-Male Players"}</div>
+      {/* M/F counters */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {[
+          { label: "男生人数\nMale Players", val: numM, set: setNumM, bg: SKY_L, border: "rgba(2,132,199,0.25)" },
+          { label: "女生人数\nFemale Players", val: numF, set: setNumF, bg: ROSE_L, border: "rgba(225,29,72,0.25)" },
+        ].map(({ label, val, set, color, bg, border }) => (
+          <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 16, padding: 16 }}>
+            <div style={{ fontSize: 11, marginBottom: 12, fontWeight: 500, whiteSpace: "pre-line", lineHeight: 1.4 }}>{label}</div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <button onClick={() => setNumM(Math.max(0, numM-1))} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>−</button>
-              <span style={{ fontSize: 36, fontWeight: 900 }} className="c-sky">{numM}</span>
-              <button onClick={() => setNumM(Math.min(20, numM+1))} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>+</button>
+              <button onClick={() => set(Math.max(0, val-1))} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>−</button>
+              <span style={{ fontSize: 36, fontWeight: 900, color }}>{val}</span>
+              <button onClick={() => set(Math.min(20, val+1))} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>+</button>
             </div>
           </div>
-        )}
-        {needsF && (
-          <div style={{ background: ROSE_L, border: "1px solid rgba(225,29,72,0.25)", borderRadius: 16, padding: 16 }}>
-            <div style={{ fontSize: 11, marginBottom: 12, fontWeight: 500, whiteSpace: "pre-line", lineHeight: 1.4 }}>{"女生人数
-Female Players"}</div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <button onClick={() => setNumF(Math.max(0, numF-1))} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>−</button>
-              <span style={{ fontSize: 36, fontWeight: 900 }} className="c-rose">{numF}</span>
-              <button onClick={() => setNumF(Math.min(20, numF+1))} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>+</button>
-            </div>
-          </div>
-        )}
+        ))}
       </div>
 
       <TargetGamesInput value={targetGames} onChange={setTargetGames} />
@@ -824,8 +661,9 @@ Female Players"}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={S.label}>比赛模式 Game Mode</div>
         {MODES.map(m => {
-          const showBorrow = m.id === "mixed" && numM !== numF;
-          return <ModeBtn key={m.id} m={m} active={mode===m.id} disabled={false} showBorrow={showBorrow} onClick={() => { setMode(m.id); setResult(null); }} />;
+          const disabled = m.id !== "mixed" && (numM < m.needM || numF < m.needF);
+          const showBorrow = m.id === "mixed" && numM !== numF && !disabled;
+          return <ModeBtn key={m.id} m={m} active={mode===m.id} disabled={disabled} showBorrow={showBorrow} onClick={() => !disabled && setMode(m.id)} />;
         })}
       </div>
 
@@ -1090,7 +928,7 @@ const LEVEL_RESULTS = {
 const CHOICES = [
   { label:"会", en:"Yes",        score:3, bg:"rgba(22,163,74,0.12)",  cls:"c-green" },
   { label:"有时会", en:"Usually", score:2, bg:"rgba(2,132,199,0.10)",  cls:"c-sky" },
-  { label:"偶尔", en:"Occasionally",   score:1, bg:"rgba(217,119,6,0.10)",  cls:"c-amber" },
+  { label:"偶尔", en:"Rarely",   score:1, bg:"rgba(217,119,6,0.10)",  cls:"c-amber" },
   { label:"不会", en:"No",       score:0, bg:"rgba(225,29,72,0.10)",  cls:"c-rose" },
 ];
 
@@ -1846,13 +1684,11 @@ ${perPlayerRows ? `<h2>场次分布 Games Distribution · avg ${stats.avgGames} 
    SHARED VIEW (opened via link)
 ═══════════════════════════════════════════════════════════ */
 function SharedView({ data }) {
-  const theme = useTheme();
-  useEffect(() => { applyTheme(theme); }, [theme]);
+  useForceDarkBg();
   return (
-    <div className="bmt" style={{ background: theme.BG, minHeight: "100vh", fontFamily: "'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif", position:"relative" }}>
-      <BmtStyles theme={theme} />
-      <ThemeBg theme={theme} />
-      <div style={{ position:"relative", zIndex:1, maxWidth: 400, margin: "0 auto", padding: "32px 16px 64px" }}>
+    <div className="bmt" style={{ background: BG, minHeight: "100vh", fontFamily: "'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" }}>
+      <BmtStyles />
+      <div style={{ maxWidth: 400, margin: "0 auto", padding: "32px 16px 64px" }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <div style={{ fontSize: 36, marginBottom: 6 }}>🏸</div>
           <h1 style={{ fontSize: 20, fontWeight: 900, margin: 0 }}>羽毛球赛程</h1>
@@ -1877,11 +1713,9 @@ function SharedView({ data }) {
 
 
 function App() {
-  const theme = useTheme();
+  useForceDarkBg();
   const [tab, setTab] = useState("basic");
   const [sharedData, setSharedData] = useState(null);
-
-  useEffect(() => { applyTheme(theme); }, [theme]);
 
   useEffect(() => {
     try {
@@ -1896,14 +1730,10 @@ function App() {
 
   if (sharedData) return <SharedView data={sharedData} />;
 
-  const tabBg = theme.dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.04)";
-  const tabBorder = theme.dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)";
-
   return (
-    <div className="bmt" style={{ background: theme.BG, minHeight: "100vh", fontFamily: "'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif", position: "relative" }}>
-      <BmtStyles theme={theme} />
-      <ThemeBg theme={theme} />
-      <div style={{ position: "relative", zIndex: 1, maxWidth: 400, margin: "0 auto", padding: "32px 16px 90px" }}>
+    <div className="bmt" style={{ background: BG, minHeight: "100vh", fontFamily: "'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" }}>
+      <BmtStyles />
+      <div style={{ maxWidth: 400, margin: "0 auto", padding: "32px 16px 64px" }}>
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontSize: 40, marginBottom: 8 }}>🏸</div>
@@ -1912,7 +1742,7 @@ function App() {
         </div>
 
         {/* Mode toggle */}
-        <div style={{ display: "flex", gap: 4, background: tabBg, border: `1px solid ${tabBorder}`, padding: 4, borderRadius: 18, marginBottom: 24 }}>
+        <div style={{ display: "flex", gap: 4, background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.05)", padding: 4, borderRadius: 18, marginBottom: 24 }}>
           {[
             { id: "basic",    label: "⚡ 快速模式 Quick" },
             { id: "advanced", label: "🎯 高级模式 Advanced" },
@@ -1933,7 +1763,6 @@ function App() {
           覆盖优化 Coverage · 水平匹配 Skill Balance · 性别借位 Gender Sub-in
         </div>
       </div>
-      <ThemeSwitcher theme={theme} />
     </div>
   );
 }
