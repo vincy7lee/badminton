@@ -306,7 +306,8 @@ function scheduleBalanced(allMatches, targetGames = Infinity) {
   );
 }
 
-function computeStats(rounds, players) {
+function computeStats(rounds, players, mode) {
+  const isSingles = mode && mode.includes("singles");
   const opposed = {}, teamed = {}, gc = makeGameCount();
   for (const round of rounds) for (const m of round) {
     const ap = m.teamA.map(p => baseId(p.id));
@@ -320,7 +321,7 @@ function computeStats(rounds, players) {
   let totO = 0, covO = 0, totT = 0, covT = 0;
   for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
     totO++; if (mGet(opposed, ids[i], ids[j]) > 0) covO++;
-    totT++; if (mGet(teamed, ids[i], ids[j]) > 0) covT++;
+    if (!isSingles) { totT++; if (mGet(teamed, ids[i], ids[j]) > 0) covT++; }
   }
   const gameCounts = ids.map(id => gc[id] || 0);
   const minG = gameCounts.length ? Math.min(...gameCounts) : 0;
@@ -331,7 +332,7 @@ function computeStats(rounds, players) {
     rounds: rounds.length,
     totalMatches: rounds.reduce((s, r) => s + r.length, 0),
     opponentCoverage: totO > 0 ? Math.round(covO / totO * 100) : 100,
-    teammateCoverage: totT > 0 ? Math.round(covT / totT * 100) : 100,
+    teammateCoverage: isSingles ? null : (totT > 0 ? Math.round(covT / totT * 100) : 100),
     minGames: minG,
     maxGames: maxG,
     avgGames: Math.round(avgG * 10) / 10,
@@ -443,10 +444,12 @@ function ResultView({ result, matchMode, onRegenerate }) {
             <span>对手覆盖率 Opponent Coverage</span><span className="c-green">{stats.opponentCoverage}%</span>
           </div>
           <CoverBar pct={stats.opponentCoverage} color="green" />
+          {stats.teammateCoverage !== null && (<>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginTop: 4 }}>
             <span>队友覆盖率 Partner Coverage</span><span className="c-sky">{stats.teammateCoverage}%</span>
           </div>
           <CoverBar pct={stats.teammateCoverage} color="blue" />
+          </>)}
         </div>
 
         {/* Per-player game spread */}
@@ -613,7 +616,7 @@ function BasicPanel() {
     if (!allMatches.length) return;
     const rounds = scheduleRoundRobin(allMatches, targetGames);
     const rel = mode === "mixed" ? [...males, ...females] : mode.includes("mens") ? males : females;
-    setResult({ rounds, stats: computeStats(rounds, rel) });
+    setResult({ rounds, stats: computeStats(rounds, rel, mode) });
   }
 
   const modeInfo = MODES.find(m => m.id === mode);
@@ -666,8 +669,55 @@ function BasicPanel() {
 /* ═══════════════════════════════════════════════════════════
    ADVANCED PANEL
 ═══════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════
+   SUPABASE ROOM HELPERS
+═══════════════════════════════════════════════════════════ */
+const SB_URL = "https://uweqzglorvgyvjavkohr.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3ZXF6Z2xvcnZneXZqYXZrb2hyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMzM3OTEsImV4cCI6MjA4OTYwOTc5MX0.qKaWWlliSnRMtolPpw1G_KUPkSlkFk7M4BXhp99mH6A";
+
+async function sbFetch(path, options = {}) {
+  const res = await fetch(SB_URL + path, {
+    ...options,
+    headers: {
+      "apikey": SB_KEY,
+      "Authorization": "Bearer " + SB_KEY,
+      "Content-Type": "application/json",
+      "Prefer": "return=representation",
+      ...(options.headers || {}),
+    },
+  });
+  if (!res.ok) throw new Error(await res.text());
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+async function roomLoad(code) {
+  const data = await sbFetch(`/rest/v1/bmt_rooms?code=eq.${encodeURIComponent(code)}&select=players`);
+  return data && data.length > 0 ? data[0].players : null;
+}
+
+async function roomSave(code, players) {
+  await sbFetch(`/rest/v1/bmt_rooms`, {
+    method: "POST",
+    headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
+    body: JSON.stringify({ code, players, updated_at: new Date().toISOString() }),
+  });
+}
+
+function generateRoomCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
 function AdvancedPanel() {
   const [players, setPlayers] = useState([]);
+  const [roomCode, setRoomCode] = useState("");
+  const [roomInput, setRoomInput] = useState("");
+  const [roomStatus, setRoomStatus] = useState("idle"); // idle | joining | saving | error
+  const [roomScreen, setRoomScreen] = useState("join"); // join | room
   const [ready, setReady] = useState(false);
   const [subTab, setSubTab] = useState("roster");
   const [form, setForm] = useState({ name: "", gender: "M", skill: 5 });
@@ -677,31 +727,100 @@ function AdvancedPanel() {
   const [targetGames, setTargetGames] = useState(5);
   const [result, setResult] = useState(null);
 
+  // On mount: restore saved room code from localStorage
   useEffect(() => {
-    (async () => {
-      try {
-        const r = { value: localStorage.getItem("bmt_players") };
-        if (r?.value) setPlayers(JSON.parse(r.value));
-      } catch {}
+    const saved = localStorage.getItem("bmt_room_code");
+    if (saved) {
+      setRoomCode(saved);
+      setRoomInput(saved);
+      setRoomScreen("room");
+      loadRoom(saved);
+    } else {
       setReady(true);
-    })();
+    }
   }, []);
 
-  useEffect(() => {
-    if (!ready) return;
-    localStorage.setItem("bmt_players", JSON.stringify(players));
-  }, [players, ready]);
+  async function loadRoom(code) {
+    setRoomStatus("joining");
+    try {
+      const players = await roomLoad(code);
+      if (players !== null) {
+        setPlayers(players);
+      }
+      setRoomStatus("idle");
+    } catch(e) {
+      setRoomStatus("error");
+    }
+    setReady(true);
+  }
+
+  async function saveRoom(newPlayers) {
+    if (!roomCode) return;
+    setRoomStatus("saving");
+    try {
+      await roomSave(roomCode, newPlayers);
+      setRoomStatus("idle");
+    } catch(e) {
+      setRoomStatus("error");
+      setTimeout(() => setRoomStatus("idle"), 3000);
+    }
+  }
+
+  async function joinRoom(code) {
+    const c = code.trim().toUpperCase();
+    if (!c) return;
+    setRoomStatus("joining");
+    try {
+      const existing = await roomLoad(c);
+      if (existing === null) {
+        // New room — create it
+        await roomSave(c, []);
+        setPlayers([]);
+      } else {
+        setPlayers(existing);
+      }
+      setRoomCode(c);
+      localStorage.setItem("bmt_room_code", c);
+      setRoomScreen("room");
+      setRoomStatus("idle");
+    } catch(e) {
+      setRoomStatus("error");
+      setTimeout(() => setRoomStatus("idle"), 3000);
+    }
+    setReady(true);
+  }
+
+  function leaveRoom() {
+    localStorage.removeItem("bmt_room_code");
+    setRoomCode("");
+    setRoomInput("");
+    setPlayers([]);
+    setRoomScreen("join");
+    setReady(false);
+    setTimeout(() => setReady(true), 0);
+  }
 
   const males   = players.filter(p => p.gender === "M");
   const females = players.filter(p => p.gender === "F");
 
   function addPlayer() {
     if (!form.name.trim()) return;
-    setPlayers(prev => [...prev, { id: uid(), name: form.name.trim(), gender: form.gender, skill: form.skill }]);
+    const newP = { id: uid(), name: form.name.trim(), gender: form.gender, skill: form.skill };
+    const next = [...players, newP];
+    setPlayers(next);
+    saveRoom(next);
     setForm(f => ({ ...f, name: "", skill: 5 }));
   }
-  function delPlayer(id) { setPlayers(prev => prev.filter(p => p.id !== id)); }
-  function updPlayer(id, k, v) { setPlayers(prev => prev.map(p => p.id === id ? { ...p, [k]: v } : p)); }
+  function delPlayer(id) {
+    const next = players.filter(p => p.id !== id);
+    setPlayers(next);
+    saveRoom(next);
+  }
+  function updPlayer(id, k, v) {
+    const next = players.map(p => p.id === id ? { ...p, [k]: v } : p);
+    setPlayers(next);
+    saveRoom(next);
+  }
 
   function generate() {
     const ms = males.map(p => ({ ...p }));
@@ -710,7 +829,7 @@ function AdvancedPanel() {
     if (!all.length) return;
     const rounds = matchMode === "balanced" ? scheduleBalanced(all, targetGames) : scheduleRoundRobin(all, targetGames);
     const rel = mode === "mixed" ? [...ms, ...fs] : mode.includes("mens") ? ms : fs;
-    setResult({ rounds, stats: computeStats(rounds, rel) });
+    setResult({ rounds, stats: computeStats(rounds, rel, mode) });
     setSubTab("schedule");
   }
 
@@ -718,6 +837,55 @@ function AdvancedPanel() {
   const ok = mode === "mixed"
     ? (males.length >= 1 && females.length >= 1)
     : (males.length >= (modeInfo?.needM||0) && females.length >= (modeInfo?.needF||0));
+
+  // Room join screen
+  if (roomScreen === "join") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ ...S.card, padding: 24, display: "flex", flexDirection: "column", gap: 16, textAlign: "center" }}>
+          <div style={{ fontSize: 36 }}>🏸</div>
+          <div>
+            <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 4 }}>加入或创建房间</div>
+            <div style={{ fontSize: 12, opacity: 0.6 }}>Join or create a room to share your player roster</div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <input
+              value={roomInput}
+              onChange={e => setRoomInput(e.target.value.toUpperCase())}
+              onKeyDown={e => e.key === "Enter" && joinRoom(roomInput)}
+              placeholder="输入房间码 Room code (e.g. ABC123)"
+              maxLength={8}
+              style={{
+                background: BG3, border: "1px solid rgba(0,0,0,0.10)", borderRadius: 12,
+                padding: "12px 16px", fontSize: 18, fontWeight: 900, letterSpacing: 4,
+                textAlign: "center", outline: "none", width: "100%",
+              }}
+            />
+            <button onClick={() => joinRoom(roomInput)} disabled={roomStatus === "joining" || !roomInput.trim()}
+              style={{ width: "100%", padding: "13px 0", borderRadius: 12, fontWeight: 900, fontSize: 15,
+                background: roomInput.trim() ? EMERALD : "rgba(0,0,0,0.05)", border: "none",
+                cursor: roomInput.trim() ? "pointer" : "not-allowed" }}
+              className={roomInput.trim() ? "c-white" : "c-dim"}>
+              {roomStatus === "joining" ? "连接中…" : "加入房间 Join Room"}
+            </button>
+            <div style={{ fontSize: 11, opacity: 0.5 }}>— 或者 —</div>
+            <button onClick={() => joinRoom(generateRoomCode())}
+              style={{ width: "100%", padding: "13px 0", borderRadius: 12, fontWeight: 900, fontSize: 15,
+                background: "rgba(0,0,0,0.06)", border: "none", cursor: "pointer" }}
+              className="c-muted">
+              ✨ 创建新房间 Create New Room
+            </button>
+          </div>
+          {roomStatus === "error" && (
+            <div style={{ fontSize: 12, background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.20)",
+              borderRadius: 8, padding: "8px 12px" }} className="c-rose">
+              连接失败，请检查网络 Connection failed
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (!ready) return <div style={{ textAlign: "center", padding: "48px 0", fontSize: 14 }}>加载中… Loading</div>;
 
@@ -731,6 +899,26 @@ function AdvancedPanel() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Room code banner */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+        background: EMERALD_L, border: "1px solid rgba(22,163,74,0.25)", borderRadius: 12, padding: "10px 14px" }}>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", opacity: 0.6 }}>房间码 Room Code</div>
+          <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: 4 }} className="c-dark-green">{roomCode}</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {roomStatus === "saving" && <span style={{ fontSize: 11, opacity: 0.5 }}>同步中…</span>}
+          {roomStatus === "error" && <span style={{ fontSize: 11 }} className="c-rose">同步失败</span>}
+          {roomStatus === "idle" && <span style={{ fontSize: 11, opacity: 0.4 }}>✓ 已同步</span>}
+          <button onClick={() => {
+            navigator.clipboard.writeText(roomCode).catch(()=>{});
+          }} style={{ fontSize: 11, background: "rgba(22,163,74,0.15)", border: "none", borderRadius: 8,
+            padding: "5px 10px", cursor: "pointer", fontWeight: 700 }} className="c-dark-green">复制</button>
+          <button onClick={leaveRoom} style={{ fontSize: 11, background: "rgba(0,0,0,0.06)", border: "none",
+            borderRadius: 8, padding: "5px 10px", cursor: "pointer" }} className="c-muted">退出</button>
+        </div>
+      </div>
+
       {/* Sub-tabs */}
       <div style={{ display: "flex", gap: 4, background: "rgba(0,0,0,0.04)", padding: 4, borderRadius: 14, border: "1px solid rgba(0,0,0,0.05)" }}>
         {tabBtn("roster", `名册 Roster (${players.length})`)}
@@ -782,8 +970,7 @@ function AdvancedPanel() {
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", padding: "0 4px" }}>
                 <span style={{ fontSize: 11, ...S.text3 }}>男 Male {males.length} · 女 Female {females.length}</span>
-                <button onClick={() => { if(window.confirm("清空全部球员？\nClear all players?")) setPlayers([]); }}
-                  style={{ fontSize: 11, background: "none", border: "none", cursor: "pointer" }}>清空 Clear All</button>
+                <button style={{ fontSize: 11, background: "none", border: "none", cursor: "pointer" }} onClick={() => { if(window.confirm("清空全部球员？\nClear all players?")) { setPlayers([]); saveRoom([]); } }}>清空 Clear All</button>
               </div>
               {players.map(p => (
                 <div key={p.id} style={{ ...S.card, padding: 12 }}>
@@ -903,31 +1090,40 @@ function AdvancedPanel() {
    SHARE MODAL
 ═══════════════════════════════════════════════════════════ */
 function ShareModal({ result, matchMode, onClose }) {
-  const [shareTab, setShareTab] = useState("link");
+  const [shareTab, setShareTab] = useState("text");
   const [copied, setCopied] = useState(false);
   const [pdfStatus, setPdfStatus] = useState("idle");
 
-  // Encode schedule into a URL-safe base64 string
-  const shareData = { rounds: result.rounds, stats: result.stats, matchMode, ts: Date.now() };
-  let shareUrl = "";
-  try {
-    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(shareData))));
-    shareUrl = `${window.location.href.split("#")[0]}#share=${encoded}`;
-  } catch {}
+  const { rounds, stats } = result;
 
-  function copyLink() {
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
+  function buildText() {
+    const lines = [];
+    lines.push("🏸 羽毛球赛程安排");
+    lines.push(`${new Date().toLocaleDateString("zh-CN")} · ${stats.rounds}轮 · ${stats.totalMatches}场`);
+    lines.push("");
+    rounds.forEach((round, ri) => {
+      lines.push(`【第${ri+1}轮】`);
+      round.forEach((m, mi) => {
+        const ta = m.teamA.map(p => p.name + (p.borrowed ? "★" : "")).join("/");
+        const tb = m.teamB.map(p => p.name + (p.borrowed ? "★" : "")).join("/");
+        lines.push(`  ${mi+1}. ${ta} vs ${tb}`);
+      });
+      lines.push("");
+    });
+    lines.push(`对手覆盖率 ${stats.opponentCoverage}%${stats.teammateCoverage !== null ? " · 队友覆盖率 " + stats.teammateCoverage + "%" : ""}`);
+    return lines.join("\n");
+  }
+
+  function copyText() {
+    const text = buildText();
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2500);
     }).catch(() => {
-      // Fallback
       const ta = document.createElement("textarea");
-      ta.value = shareUrl;
-      document.body.appendChild(ta);
+      ta.value = text; document.body.appendChild(ta);
       ta.select(); document.execCommand("copy");
       document.body.removeChild(ta);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
+      setCopied(true); setTimeout(() => setCopied(false), 2500);
     });
   }
 
@@ -1011,7 +1207,7 @@ function ShareModal({ result, matchMode, onClose }) {
   <div class="stat-card"><div class="stat-val">${stats.rounds}</div><div class="stat-label">轮次 Rounds</div></div>
   <div class="stat-card"><div class="stat-val">${stats.totalMatches}</div><div class="stat-label">总场次 Matches</div></div>
   <div class="stat-card"><div class="stat-val">${stats.opponentCoverage}%</div><div class="stat-label">对手覆盖 Opp.</div></div>
-  <div class="stat-card"><div class="stat-val">${stats.teammateCoverage}%</div><div class="stat-label">队友覆盖 Partner</div></div>
+  ${stats.teammateCoverage !== null ? `<div class="stat-card"><div class="stat-val">${stats.teammateCoverage}%</div><div class="stat-label">队友覆盖 Partner</div></div>` : ""}
 </div>
 ${hasBorrow ? `<div class="note">★ 性别人数不均，已借调球员参与混双 · Uneven gender count — players subbed in (★)</div>` : ""}
 <h2>完整赛程 Full Schedule</h2>
@@ -1054,30 +1250,31 @@ ${perPlayerRows ? `<h2>场次分布 Games Distribution · avg ${stats.avgGames} 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 4, background: "rgba(0,0,0,0.04)", padding: 4, borderRadius: 14, border: "1px solid rgba(0,0,0,0.05)" }}>
           {[
-            { id: "link", label: "🔗 App 链接 Link" },
-            { id: "pdf",  label: "📄 PDF 打印 Print" },
+            { id: "text", label: "💬 复制文字" },
+            { id: "pdf",  label: "📄 打印/PDF" },
           ].map(t => (
             <button key={t.id} onClick={() => setShareTab(t.id)} style={{
               flex: 1, padding: "8px 0", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer",
               background: shareTab === t.id ? EMERALD : "transparent",
-              
-            }}>{t.label}</button>
+            }} className={shareTab === t.id ? "c-white" : "c-muted"}>{t.label}</button>
           ))}
         </div>
 
-        {shareTab === "link" && (
+        {shareTab === "text" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ fontSize: 11, lineHeight: 1.7 }}>
-              赛程数据编码在链接中，发给任何人打开即可查看完整赛程。<br/>
-              <span style={{ opacity: 0.7 }}>Schedule data is encoded in the URL — anyone with the link can view it.</span>
+            <div style={{ fontSize: 11, lineHeight: 1.7, opacity: 0.7 }}>
+              复制后可直接粘贴到微信/钉钉群发给队友
             </div>
-            <div style={{ background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 12, padding: "10px 12px", fontSize: 10, fontFamily: "monospace", wordBreak: "break-all", userSelect: "all" }}>
-              {shareUrl || "生成中… Generating…"}
-            </div>
-            <button onClick={copyLink} style={{
-              width: "100%", padding: "12px 0", borderRadius: 12, fontWeight: 900, fontSize: 14, border: "none", cursor: "pointer",
+            <pre style={{
+              background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.07)",
+              borderRadius: 12, padding: "12px 14px", fontSize: 12, lineHeight: 1.8,
+              whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 280, overflowY: "auto",
+              fontFamily: "'PingFang SC','Microsoft YaHei',sans-serif", userSelect: "all",
+            }}>{buildText()}</pre>
+            <button onClick={copyText} style={{
+              width: "100%", padding: "13px 0", borderRadius: 12, fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer",
               background: copied ? "#14532d" : EMERALD,
-            }}>{copied ? "✓ 已复制 Copied!" : "📋 复制链接 Copy Link"}</button>
+            }} className="c-white">{copied ? "✓ 已复制！直接粘贴发给队友" : "📋 一键复制赛程"}</button>
           </div>
         )}
 
@@ -1090,7 +1287,7 @@ ${perPlayerRows ? `<h2>场次分布 Games Distribution · avg ${stats.avgGames} 
             <div style={{ background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
               {[
                 `${result.stats.rounds} 轮 · ${result.stats.totalMatches} 场`,
-                `对手覆盖 ${result.stats.opponentCoverage}% · 队友覆盖 ${result.stats.teammateCoverage}%`,
+                `对手覆盖 ${result.stats.opponentCoverage}%${result.stats.teammateCoverage !== null ? " · 队友覆盖 " + result.stats.teammateCoverage + "%" : ""}`,
                 result.stats.perPlayer?.length ? `${result.stats.perPlayer.length} 名球员场次分布` : null,
               ].filter(Boolean).map((line, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11}}>
