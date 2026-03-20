@@ -712,6 +712,352 @@ function generateRoomCode() {
   return code;
 }
 
+
+/* ═══════════════════════════════════════════════════════════
+   SKILL ASSESSMENT QUIZ — Adaptive (中羽标准)
+   4 choices: 会(3) / 有时会(2) / 偶尔(1) / 不会(0)
+   Question bank grouped by difficulty level 1-6.
+   Each answer steers difficulty up/down.
+═══════════════════════════════════════════════════════════ */
+
+// Each question: { id, level(1-6), q, en }
+const QBANK = [
+  // ── Level 1 ─────────────────────────────────────────────
+  { id:"L1a", level:1,
+    q:"你能稳定地把球打过网，并落在对方半场吗？",
+    en:"Can you consistently get the shuttle over the net into the opponent's half?" },
+  { id:"L1b", level:1,
+    q:"你能用正手完成一个完整的挥拍动作（不是推或拍）吗？",
+    en:"Can you execute a full forehand swing motion (not just a push or pat)?" },
+  { id:"L1c", level:1,
+    q:"你知道发球时球要从腰部以下击打吗，并能做到？",
+    en:"Do you know and follow the rule that the shuttle must be hit below the waist on serve?" },
+  { id:"L1d", level:1,
+    q:"你能连续和别人对打超过5拍而不失误吗？",
+    en:"Can you sustain a rally of more than 5 shots without making an error?" },
+  { id:"L1e", level:1,
+    q:"你大致了解羽毛球场地的各个区域（前场/中场/后场）吗？",
+    en:"Do you roughly understand the different zones of a badminton court (front/mid/rear)?" },
+
+  // ── Level 2 ─────────────────────────────────────────────
+  { id:"L2a", level:2,
+    q:"你能用正手打出落点在对方底线附近的高远球吗？",
+    en:"Can you hit a forehand clear that lands near the opponent's baseline?" },
+  { id:"L2b", level:2,
+    q:"打双打时你会主动移位补位，而不是站在原地等球吗？",
+    en:"In doubles, do you actively move and cover rather than waiting in place?" },
+  { id:"L2c", level:2,
+    q:"你能用反手把球稳定挡过网（不靠正手绕头）吗？",
+    en:"Can you reliably return shots with your backhand (without running around)?" },
+  { id:"L2d", level:2,
+    q:"你能打出有弧度的发长球，让球落在对方后场吗？",
+    en:"Can you serve a high long serve that lands in the opponent's rear court?" },
+  { id:"L2e", level:2,
+    q:"你打球时能区分用手腕发力还是手臂发力吗？",
+    en:"Can you distinguish between using wrist and arm power when hitting?" },
+  { id:"L2f", level:2,
+    q:"你能在打完球后有意识地往中间位置移动吗？",
+    en:"After hitting, do you consciously move back toward the center of the court?" },
+
+  // ── Level 3 ─────────────────────────────────────────────
+  { id:"L3a", level:3,
+    q:"你能打出轻巧落在对方前场的吊球吗？",
+    en:"Can you hit a controlled drop shot that lands softly in the forecourt?" },
+  { id:"L3b", level:3,
+    q:"你能稳定接住对方的杀球并回到合理位置吗？",
+    en:"Can you reliably return your opponent's smash and recover position?" },
+  { id:"L3c", level:3,
+    q:"你的步伐能让你在打完球后基本回到中心位置吗？",
+    en:"Can your footwork get you roughly back to center position after each shot?" },
+  { id:"L3d", level:3,
+    q:"你能打出斜线和直线两个方向的球，主动选择落点吗？",
+    en:"Can you intentionally hit both cross-court and down-the-line shots?" },
+  { id:"L3e", level:3,
+    q:"你能用反手在网前做出合理的挑球或推球吗？",
+    en:"Can you use your backhand at the net to lift or push the shuttle appropriately?" },
+  { id:"L3f", level:3,
+    q:"双打中你能和搭档保持基本的前后站位或左右站位吗？",
+    en:"In doubles, can you maintain basic front-back or side-by-side positioning with your partner?" },
+  { id:"L3g", level:3,
+    q:"你能做到起跳杀球（跳起来在高点击球）吗？",
+    en:"Can you perform a jump smash (jumping to hit the shuttle at a higher point)?" },
+
+  // ── Level 4 ─────────────────────────────────────────────
+  { id:"L4a", level:4,
+    q:"你能连续完成：后场高球→上网→放网前球 这样的组合吗？",
+    en:"Can you chain: rear clear → move to net → drop shot in one rally?" },
+  { id:"L4b", level:4,
+    q:"你打杀球时能控制落点方向（不只是往下打）吗？",
+    en:"When smashing, can you direct the shuttle to a chosen spot (not just downward)?" },
+  { id:"L4c", level:4,
+    q:"你能在网前搓出旋转球让对方难以处理吗？",
+    en:"Can you play a spinning tumbling net shot that's difficult for your opponent?" },
+  { id:"L4d", level:4,
+    q:"你能在被动情况下用高球化解，并重新组织进攻吗？",
+    en:"When under pressure, can you lift a high clear to reset and reorganize your attack?" },
+  { id:"L4e", level:4,
+    q:"你能有意识地用吊球和杀球组合来调动对方吗？",
+    en:"Can you deliberately combine drop shots and smashes to move your opponent around?" },
+  { id:"L4f", level:4,
+    q:"你发球时能区分发网前短球和发后场长球，并灵活切换吗？",
+    en:"Can you switch between short net serve and long rear serve flexibly during a match?" },
+  { id:"L4g", level:4,
+    q:"你在后场能做到左右两侧都能打出有质量的进攻球吗？",
+    en:"From the rear court, can you attack effectively from both left and right sides?" },
+
+  // ── Level 5 ─────────────────────────────────────────────
+  { id:"L5a", level:5,
+    q:"你能用反手在后场打出有质量的高远球或杀球吗？",
+    en:"Can you hit a quality backhand clear or smash from the rear court?" },
+  { id:"L5b", level:5,
+    q:"你能通过调动对方移动来主动制造空当并得分吗？",
+    en:"Can you move your opponent around to create openings and finish the point?" },
+  { id:"L5c", level:5,
+    q:"你能提前预判对方下一拍的方向并抢先移动吗？",
+    en:"Can you anticipate your opponent's next shot and move before they hit?" },
+  { id:"L5d", level:5,
+    q:"你能打出速度快、弧度低的平抽挡（平射球）吗？",
+    en:"Can you hit fast, flat drives that travel low over the net?" },
+  { id:"L5e", level:5,
+    q:"你能在网前做出快速的推扑动作抢得先机吗？",
+    en:"Can you quickly rush the net to intercept and push down a loose shuttle?" },
+  { id:"L5f", level:5,
+    q:"你能连续多拍控制球的落点，把对方调动到极限位置吗？",
+    en:"Can you consistently control shot placement over multiple shots to push your opponent to the corners?" },
+
+  // ── Level 6 ─────────────────────────────────────────────
+  { id:"L6a", level:6,
+    q:"你在比赛中能根据局势主动切换进攻/防守策略吗？",
+    en:"Can you actively switch between attack and defense strategies based on the rally?" },
+  { id:"L6b", level:6,
+    q:"你的平抽挡速度和稳定性在业余高手中仍有竞争力吗？",
+    en:"Is your flat drive speed and consistency competitive among advanced amateur players?" },
+  { id:"L6c", level:6,
+    q:"你能在高压下保持技术稳定，打出关键分吗？",
+    en:"Can you maintain technical consistency under pressure and win crucial points?" },
+  { id:"L6d", level:6,
+    q:"你能针对不同对手调整打法（例如遇到强杀球就多吊球）吗？",
+    en:"Can you adjust your game plan against different opponents (e.g. more drops against strong smashers)?" },
+  { id:"L6e", level:6,
+    q:"你的步伐能覆盖全场六个角落，而且还能保持击球质量吗？",
+    en:"Can your footwork cover all six corners of the court while maintaining shot quality?" },
+];
+
+// Adaptive engine
+// currentLevel: estimated level (1-6)
+// Returns next question id, or null if done
+function nextQuestion(history, currentLevel) {
+  const asked = new Set(history.map(h => h.id));
+  const lvl = Math.round(currentLevel); // levels are integers 1-6
+  // Pick a question at current rounded level not yet asked
+  const candidates = QBANK.filter(q => q.level === lvl && !asked.has(q.id));
+  if (candidates.length > 0) return candidates[0];
+  // If exhausted at this level, pick adjacent
+  for (let delta = 1; delta <= 5; delta++) {
+    for (const adj of [lvl - delta, lvl + delta]) {
+      if (adj < 1 || adj > 6) continue;
+      const c = QBANK.filter(q => q.level === adj && !asked.has(q.id));
+      if (c.length > 0) return c[0];
+    }
+  }
+  return null; // all questions exhausted
+}
+
+// Score 0-3 → level adjustment
+function adjustLevel(score, currentLevel) {
+  if (score === 3) return Math.min(6, currentLevel + 1);   // 会 → go harder
+  if (score === 2) return currentLevel;                     // 有时会 → stay
+  if (score === 1) return Math.max(1, currentLevel - 0.5); // 偶尔 → nudge down
+  return Math.max(1, currentLevel - 1);                    // 不会 → go easier
+}
+
+// After N questions, derive final level from history
+function deriveLevel(history) {
+  if (history.length === 0) return 2;
+  let weightedSum = 0, weightTotal = 0;
+  history.forEach((h, i) => {
+    const w = i + 1;
+    const contribution = h.level + (h.score / 3 - 0.5) * 0.8;
+    weightedSum += contribution * w;
+    weightTotal += w;
+  });
+  const avg = weightedSum / weightTotal;
+  const clamped = Math.min(6, Math.max(1, avg));
+  // Round to nearest 0.5
+  return Math.round(clamped * 2) / 2;
+}
+
+const LEVEL_RESULTS = {
+  1:   { level:"1",   label:"新手 Beginner",       color:"#64748b",
+    desc:"刚开始打球，先把球稳定打过网是最重要的目标。多和朋友练习基本功！" },
+  1.5: { level:"1.5", label:"新手+ Beginner+",     color:"#64748b",
+    desc:"基本击球有了，但稳定性还不够。多练正手发力和基本步伐。" },
+  2:   { level:"2",   label:"入门 Novice",          color:"#0284c7",
+    desc:"有基本击球能力，正手比较稳定。建议多练反手和步伐，打更多双打积累经验。" },
+  2.5: { level:"2.5", label:"入门+ Novice+",        color:"#0284c7",
+    desc:"正手稳定，开始有反手意识。继续练习吊球和双打补位。" },
+  3:   { level:"3",   label:"初级 Basic",           color:"#16a34a",
+    desc:"正反手都能用，有基本战术意识。继续练习吊球、补位和连贯动作。" },
+  3.5: { level:"3.5", label:"初级+ Basic+",         color:"#16a34a",
+    desc:"技术动作比较扎实，开始有组合战术意识。可以尝试更多网前细腻处理。" },
+  4:   { level:"4",   label:"初中 Pre-Inter",       color:"#d97706",
+    desc:"技术较全面，有一定战术思路。可以考虑参加业余联赛，找更强的对手磨练。" },
+  4.5: { level:"4.5", label:"初中+ Pre-Inter+",     color:"#d97706",
+    desc:"战术意识不错，攻守都有一手。反手和预判是下一步提升的重点。" },
+  5:   { level:"5",   label:"中级 Inter",           color:"#7c3aed",
+    desc:"水平不错！后场、网前、步伐都比较扎实，有主动得分能力。" },
+  5.5: { level:"5.5", label:"中级+ Inter+",         color:"#7c3aed",
+    desc:"全面且稳定，能在业余比赛中稳定发挥，技战术结合较好。" },
+  6:   { level:"6",   label:"中高 Upper-Inter",     color:"#e11d48",
+    desc:"业余高手水平！战术意识强，技术全面，可以带动初学者了。" },
+};
+
+const CHOICES = [
+  { label:"会", en:"Yes",        score:3, bg:"rgba(22,163,74,0.12)",  cls:"c-green" },
+  { label:"有时会", en:"Usually", score:2, bg:"rgba(2,132,199,0.10)",  cls:"c-sky" },
+  { label:"偶尔", en:"Rarely",   score:1, bg:"rgba(217,119,6,0.10)",  cls:"c-amber" },
+  { label:"不会", en:"No",       score:0, bg:"rgba(225,29,72,0.10)",  cls:"c-rose" },
+];
+
+const MAX_QUESTIONS = 8;
+const MIN_QUESTIONS = 5;
+
+function SkillQuiz({ onDone, onClose }) {
+  const [history, setHistory] = useState([]); // [{id, level, score}]
+  const [currentLevel, setCurrentLevel] = useState(3); // start at mid
+  const [currentQ, setCurrentQ] = useState(() => nextQuestion([], 3));
+  const [result, setResult] = useState(null);
+  const [answered, setAnswered] = useState(null); // show flash before advancing
+
+  function handleAnswer(score) {
+    if (answered !== null) return;
+    setAnswered(score);
+    const newHistory = [...history, { id: currentQ.id, level: currentQ.level, score }];
+    const newLevel = adjustLevel(score, currentLevel);
+
+    setTimeout(() => {
+      setAnswered(null);
+      const done = newHistory.length >= MAX_QUESTIONS;
+      const nextQ = done ? null : nextQuestion(newHistory, newLevel);
+      // Only show result if we've hit max OR no more questions AND met minimum
+      if (done || (!nextQ && newHistory.length >= MIN_QUESTIONS)) {
+        setHistory(newHistory);
+        const finalLevel = deriveLevel(newHistory);
+        setResult(LEVEL_RESULTS[finalLevel] || LEVEL_RESULTS[Math.round(finalLevel)]);
+      } else {
+        // Not enough questions yet — find any remaining question
+        const fallbackQ = nextQ || nextQuestion(newHistory, newLevel < 3 ? newLevel + 1 : newLevel - 1);
+        if (fallbackQ) {
+          setHistory(newHistory);
+          setCurrentLevel(newLevel);
+          setCurrentQ(fallbackQ);
+        } else {
+          // Truly exhausted all questions
+          setHistory(newHistory);
+          const finalLevel = deriveLevel(newHistory);
+          setResult(LEVEL_RESULTS[finalLevel] || LEVEL_RESULTS[Math.round(finalLevel)]);
+        }
+      }
+    }, 350);
+  }
+
+  function restart() {
+    setHistory([]); setCurrentLevel(3); setResult(null); setAnswered(null);
+    setCurrentQ(nextQuestion([], 3));
+  }
+
+  const progress = Math.min(history.length / MAX_QUESTIONS * 100, 100);
+  const res = result ? LEVEL_RESULTS[result.level] : null;
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:60, display:"flex", alignItems:"flex-end",
+      justifyContent:"center", padding:16, background:"rgba(0,0,0,0.75)" }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ width:"100%", maxWidth:400, background:BG2, borderRadius:24, padding:24,
+        display:"flex", flexDirection:"column", gap:18, boxShadow:"0 24px 60px rgba(0,0,0,0.5)" }}>
+
+        {!result ? (<>
+          {/* Header */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div>
+              <div style={{ fontWeight:900, fontSize:17 }}>🏸 等级评估</div>
+              <div style={{ fontSize:11, opacity:0.5 }}>Adaptive Skill Assessment · 中羽标准</div>
+            </div>
+            <button onClick={onClose} style={{ width:30, height:30, borderRadius:"50%",
+              background:"rgba(0,0,0,0.07)", border:"none", cursor:"pointer" }}>✕</button>
+          </div>
+
+          {/* Progress */}
+          <div>
+            <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, marginBottom:6, opacity:0.5 }}>
+              <span>第 {history.length + 1} 题 / 最多 {MAX_QUESTIONS} 题</span>
+              <span>难度 Lv{Number.isInteger(currentLevel) ? currentLevel : currentLevel.toFixed(1)}</span>
+            </div>
+            <div style={{ height:6, background:"rgba(0,0,0,0.07)", borderRadius:999, overflow:"hidden" }}>
+              <div style={{ height:"100%", width:`${progress}%`, background:EMERALD,
+                borderRadius:999, transition:"width 0.4s" }} />
+            </div>
+          </div>
+
+          {/* Question card */}
+          {currentQ && (
+            <div style={{ ...S.card2, padding:20, display:"flex", flexDirection:"column", gap:10,
+              transition:"opacity 0.2s", opacity: answered !== null ? 0.4 : 1 }}>
+              <div style={{ fontSize:15, fontWeight:700, lineHeight:1.6 }}>{currentQ.q}</div>
+              <div style={{ fontSize:11, opacity:0.45, lineHeight:1.5 }}>{currentQ.en}</div>
+            </div>
+          )}
+
+          {/* 4 choices */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            {CHOICES.map(c => (
+              <button key={c.score} onClick={() => handleAnswer(c.score)}
+                style={{ padding:"13px 8px", borderRadius:14, fontWeight:900, fontSize:14,
+                  border: answered === c.score ? "2px solid currentColor" : "2px solid transparent",
+                  background: c.bg, cursor:"pointer", transition:"all 0.15s",
+                  opacity: answered !== null && answered !== c.score ? 0.4 : 1 }}
+                className={c.cls}>
+                <div>{c.label}</div>
+                <div style={{ fontSize:10, fontWeight:400, opacity:0.7, marginTop:2 }}>{c.en}</div>
+              </button>
+            ))}
+          </div>
+        </>) : (<>
+          {/* Result */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div style={{ fontWeight:900, fontSize:17 }}>🎯 评估结果</div>
+            <button onClick={onClose} style={{ width:30, height:30, borderRadius:"50%",
+              background:"rgba(0,0,0,0.07)", border:"none", cursor:"pointer" }}>✕</button>
+          </div>
+
+          <div style={{ ...S.card2, padding:22, textAlign:"center", display:"flex", flexDirection:"column", gap:12 }}>
+            <div style={{ fontSize:52, fontWeight:900, color: result.color }}>Lv{result.level}</div>
+            <div style={{ fontSize:19, fontWeight:900 }}>{result.label}</div>
+            <div style={{ fontSize:13, lineHeight:1.75, opacity:0.7 }}>{result.desc}</div>
+            <div style={{ fontSize:10, opacity:0.35, marginTop:4 }}>
+              回答了 {history.length} 题
+            </div>
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            <button onClick={restart}
+              style={{ padding:"12px 0", borderRadius:12, fontWeight:700, fontSize:14,
+                border:"none", cursor:"pointer", background:"rgba(0,0,0,0.06)" }} className="c-muted">
+              ↺ 重测 Retry
+            </button>
+            <button onClick={() => onDone(parseFloat(result.level))}
+              style={{ padding:"12px 0", borderRadius:12, fontWeight:700, fontSize:14,
+                border:"none", cursor:"pointer", background:EMERALD }} className="c-white">
+              用 Lv{result.level}
+            </button>
+          </div>
+        </>)}
+      </div>
+    </div>
+  );
+}
+
+
 function AdvancedPanel() {
   const [players, setPlayers] = useState([]);
   const [roomCode, setRoomCode] = useState("");
@@ -722,6 +1068,7 @@ function AdvancedPanel() {
   const [subTab, setSubTab] = useState("roster");
   const [form, setForm] = useState({ name: "", gender: "M", skill: 5 });
   const [editId, setEditId] = useState(null);
+  const [showQuiz, setShowQuiz] = useState(false);
   const [mode, setMode] = useState("mixed");
   const [matchMode, setMatchMode] = useState("random");
   const [targetGames, setTargetGames] = useState(5);
@@ -899,6 +1246,11 @@ function AdvancedPanel() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {showQuiz && <SkillQuiz
+        onClose={() => setShowQuiz(false)}
+        onDone={level => { setForm(f => ({...f, skill: Math.round(level)})); setShowQuiz(false); }}
+      />}
+
       {/* Room code banner */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
         background: EMERALD_L, border: "1px solid rgba(22,163,74,0.25)", borderRadius: 12, padding: "10px 14px" }}>
@@ -945,8 +1297,8 @@ function AdvancedPanel() {
                 ))}
               </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
                 <span style={S.text3}>技术水平 Skill Level</span>
                 <span style={{ fontWeight: 700 }}>Lv{form.skill} · {SKILL_LABELS[form.skill]}</span>
               </div>
@@ -956,6 +1308,10 @@ function AdvancedPanel() {
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9}}>
                 <span>1 Beginner</span><span>5 Intermediate</span><span>10 Champion</span>
               </div>
+              <button onClick={() => setShowQuiz(true)} style={{
+                width: "100%", padding: "10px 0", borderRadius: 12, fontWeight: 700, fontSize: 13,
+                border: "1px solid rgba(124,58,237,0.25)", cursor: "pointer", background: VIOLET_L,
+              }} className="c-violet">🎯 不确定？帮我评估等级</button>
             </div>
             <button onClick={addPlayer} disabled={!form.name.trim()} style={{
               width: "100%", padding: "10px 0", borderRadius: 12, fontWeight: 700, fontSize: 14, border: "none",
