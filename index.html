@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Build: 2026-03-21 21:50:10 -->
+<!-- Build: 2026-03-21 22:06:54 -->
 <html lang="zh">
 <head>
   <meta charset="UTF-8"/>
@@ -891,7 +891,7 @@ function ShareModal({ result, matchMode, onClose }) {
       .join("");
 
     const html = `<!DOCTYPE html>
-<!-- Build: 2026-03-21 21:50:10 -->
+<!-- Build: 2026-03-21 22:06:54 -->
 <html lang="zh">
 <head>
 <meta charset="UTF-8"/>
@@ -1084,7 +1084,7 @@ function PlayerPickerModal({title, players, onPick, onClose, multiSelect=false})
           {selected && <span style={{color:EMERALD}}>✓</span>}
         </button>;
       })}
-      {multiSelect && <button onClick={e=>{e.stopPropagation();onPick([...sel]);}} style={{width:"100%",padding:"11px 0",borderRadius:12,fontWeight:900,fontSize:14,border:"none",cursor:"pointer",background:EMERALD,color:"#fff"}}>确认</button>}
+      {multiSelect && <button onClick={e=>{e.stopPropagation();try{alert("RemovePlayers confirm: "+[...sel].size+" selected");onPick([...sel]);alert("RemovePlayers OK!");}catch(err){alert("RemovePlayers ERROR: "+err.message);}}} style={{width:"100%",padding:"11px 0",borderRadius:12,fontWeight:900,fontSize:14,border:"none",cursor:"pointer",background:EMERALD,color:"#fff"}}>确认</button>}
     </div>
   </div>;
 }
@@ -1170,7 +1170,7 @@ function NumPickerModal({title, onConfirm, onClose}){
       {/* Confirm */}
       <div style={{padding:14,display:"flex",gap:10,borderTop:`1px solid ${BORDER}`}}>
         <button onClick={onClose} style={{flex:1,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)",fontWeight:700}}>取消 Cancel</button>
-        <button onClick={e=>{e.stopPropagation();console.log("AddPlayers confirm clicked, players=",players);alert("AddPlayers: "+players.length+" players");confirm();}} disabled={players.length===0}
+        <button onClick={e=>{e.stopPropagation();try{confirm();alert("AddPlayers OK!");}catch(err){alert("AddPlayers ERROR: "+err.message);}}} disabled={players.length===0}
           style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",fontWeight:900,
             background:players.length>0?EMERALD:"rgba(0,0,0,.05)",
             color:players.length>0?"#fff":"rgba(0,0,0,.25)",
@@ -1197,7 +1197,7 @@ function ExtraRoundsModal({onConfirm, onClose}){
       </div>
       <div style={{display:"flex",gap:10}}>
         <button onClick={onClose} style={{flex:1,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)",fontWeight:700}}>取消</button>
-        <button onClick={e=>{e.stopPropagation();console.log("MoreRounds confirm clicked, n=",n);alert("MoreRounds: "+n);onConfirm(n);}} style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:900}}>生成 {n} 轮</button>
+        <button onClick={e=>{e.stopPropagation();try{onConfirm(n);alert("MoreRounds OK!");}catch(err){alert("MoreRounds ERROR: "+err.message);}}} style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:900}}>生成 {n} 轮</button>
       </div>
     </div>
   </div>;
@@ -1338,7 +1338,7 @@ function BasicPanel(){
   }
   const ok=mode==="mixed"?(numM>=1&&numF>=1):(needM?numM>=2:true)&&(needF?numF>=2:true);
   return <>
-    {addModal!==null && <NumPickerModal title="🏸 有新人加入！" onConfirm={(nM,nF,named)=>{addPlayers(addModal,nM,nF,named);setAddModal(null);}} onClose={()=>setAddModal(null)}/>}
+    {addModal!==null && <NumPickerModal title="🏸 有新人加入！" onConfirm={(nM,nF,named)=>{try{addPlayers(addModal,nM,nF,named);setAddModal(null);}catch(err){alert('addPlayers panel error: '+err.message);}}} onClose={()=>setAddModal(null)}/>}
     {removeModal!==null && <PlayerPickerModal title="移除选手 Remove Players" players={removeModal.players} multiSelect onPick={(ids)=>{removePlayer(removeModal.ri,ids);setRemoveModal(null);}} onClose={()=>setRemoveModal(null)}/>}
     {moreModal!==null && <ExtraRoundsModal onConfirm={(n)=>{moreRounds(moreModal,n);setMoreModal(null);}} onClose={()=>setMoreModal(null)}/>}
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
@@ -1592,7 +1592,7 @@ function AdvancedPanel(){
   );
 
   return <div style={{display:"flex",flexDirection:"column",gap:12}}>
-    {addModal!==null && <NumPickerModal title="🏸 有新人加入！" onConfirm={(nM,nF,named)=>{addPlayers(addModal,nM,nF,named);setAddModal(null);}} onClose={()=>setAddModal(null)}/>}
+    {addModal!==null && <NumPickerModal title="🏸 有新人加入！" onConfirm={(nM,nF,named)=>{try{addPlayers(addModal,nM,nF,named);setAddModal(null);}catch(err){alert('addPlayers panel error: '+err.message);}}} onClose={()=>setAddModal(null)}/>}
     {removeModal!==null && <PlayerPickerModal title="移除选手 Remove Players" players={removeModal.players} multiSelect onPick={(ids)=>{removePlayer(removeModal.ri,ids);setRemoveModal(null);}} onClose={()=>setRemoveModal(null)}/>}
     {moreModal!==null && <ExtraRoundsModal onConfirm={(n)=>{moreRounds(moreModal,n);setMoreModal(null);}} onClose={()=>setMoreModal(null)}/>}
     {showTransfer&&<TransferOwnerModal members={roomMembers} myId={myId} players={players} onTransfer={(id)=>{transferOwner(id);setShowTransfer(false);}} onClose={()=>setShowTransfer(false)}/>}
