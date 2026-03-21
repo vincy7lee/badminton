@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Build: 2026-03-21 22:44:29 -->
+<!-- Build: 2026-03-21 22:55:59 -->
 <html lang="zh">
 <head>
   <meta charset="UTF-8"/>
@@ -891,7 +891,7 @@ function ShareModal({ result, matchMode, onClose }) {
       .join("");
 
     const html = `<!DOCTYPE html>
-<!-- Build: 2026-03-21 22:44:29 -->
+<!-- Build: 2026-03-21 22:55:59 -->
 <html lang="zh">
 <head>
 <meta charset="UTF-8"/>
@@ -1208,32 +1208,29 @@ function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, o
   const [open,setOpen]=useState(0);
   const total=rounds.reduce((s,r)=>s+r.length,0);
   const done=Object.values(checked).filter(Boolean).length;
+  const allPlayers=[...new Map(rounds.flatMap(r=>r.flatMap(m=>[...m.teamA,...m.teamB])).map(p=>[p.id,p])).values()];
+  const coverageStats=computeStats(rounds, allPlayers.length>0?allPlayers:players, mode);
 
   return <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:8}}>
 
     {/* Stats */}
-    {(()=>{
-      const allP=[...new Map(rounds.flatMap(r=>r.flatMap(m=>[...m.teamA,...m.teamB])).map(p=>[p.id,p])).values()];
-      const stats=computeStats(rounds,allP,mode);
-      const statItems=[
-        {l:"总轮次 Rounds",v:rounds.length,c:SKY},
-        {l:"总场次 Matches",v:total,c:VIOLET},
-        {l:"已完成 Done",v:`${done}/${total}`,c:EMERALD},
-        {l:"对手覆盖 Opponent",v:`${stats.opponentCoverage}%`,c:"#0891b2"},
-        ...(stats.teammateCoverage!==null?[{l:"队友覆盖 Teammate",v:`${stats.teammateCoverage}%`,c:"#7c3aed"}]:[]),
-      ];
-      return <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
-        <div style={S.lbl}>赛程统计 Stats</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-          {statItems.map(s=>(
-            <div key={s.l} style={{...S.card2,padding:10,textAlign:"center"}}>
-              <div style={{fontSize:s.l.includes("覆盖")?18:22,fontWeight:900,color:s.c}}>{s.v}</div>
-              <div style={{fontSize:9,marginTop:2,opacity:.6}}>{s.l}</div>
-            </div>
-          ))}
-        </div>
-      </div>;
-    })()}
+    <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
+      <div style={S.lbl}>赛程统计 Stats</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+        {[
+          {l:"总轮次 Rounds",v:rounds.length,c:SKY},
+          {l:"总场次 Matches",v:total,c:VIOLET},
+          {l:"已完成 Done",v:`${done}/${total}`,c:EMERALD},
+          {l:"对手覆盖 vs",v:`${coverageStats.opponentCoverage}%`,c:"#0891b2"},
+          ...(coverageStats.teammateCoverage!==null?[{l:"队友覆盖 w/",v:`${coverageStats.teammateCoverage}%`,c:VIOLET}]:[]),
+        ].map(s=>(
+          <div key={s.l} style={{...S.card2,padding:10,textAlign:"center"}}>
+            <div style={{fontSize:20,fontWeight:900,color:s.c}}>{s.v}</div>
+            <div style={{fontSize:9,marginTop:2,opacity:.6}}>{s.l}</div>
+          </div>
+        ))}
+      </div>
+    </div>
 
     {/* Header */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"0 4px"}}>
@@ -1423,8 +1420,11 @@ function BasicPanel(){
     const kept=(rounds||[]).slice(0,ri+1);
     const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
     // Generate extra rounds using existing history, take exactly n
-    const extra=schedWithHistory(pool,mode,tgt+n,{},{},gc);
-    setRounds([...kept,...extra.slice(0,n)]);
+    // Generate n new rounds on top of existing history
+    const extra=schedWithHistory(pool,mode,tgt,{},{},gc);
+    // Take at most n new rounds, but always at least what was generated
+    const newRounds=extra.length>=n?extra.slice(0,n):extra;
+    setRounds([...kept,...newRounds]);
   }
   const ok=mode==="mixed"?(numM>=1&&numF>=1):(needM?numM>=2:true)&&(needF?numF>=2:true);
   return <>
@@ -1623,8 +1623,9 @@ function AdvancedPanel(){
     const kept=(rounds||[]).slice(0,ri+1);
     const gc=buildGcFromRounds(kept);
     const {opposed,teamed}=buildOpposedFromRounds(kept);
-    const extra=schedWithHistory(players,gameMode,targetGames+n,opposed,teamed,gc);
-    const nr=[...kept,...extra.slice(0,n)];
+    const extra=schedWithHistory(players,gameMode,targetGames,opposed,teamed,gc);
+    const newRounds=extra.length>=n?extra.slice(0,n):extra;
+    const nr=[...kept,...newRounds];
     setRounds(nr);saveRoomState(players,nr);
   }
   function transferOwner(newOwnerId){
