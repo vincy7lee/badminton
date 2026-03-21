@@ -1627,7 +1627,7 @@ function ShareModal({ result, matchMode, onClose }) {
   ${stats.teammateCoverage !== null ? `<div class="stat-card"><div class="stat-val">${stats.teammateCoverage}%</div><div class="stat-label">队友覆盖 Partner</div></div>` : ""}
 </div>
 ${hasBorrow ? `<div class="note">★ 性别人数不均，已借调球员参与混双 · Uneven gender count — players subbed in (★)</div>` : ""}
-<h2>{lang==="en"?"Full Schedule":lang==="zh"?"完整赛程":"完整赛程 Full Schedule"}</h2>
+<h2>完整赛程 Full Schedule</h2>
 <table>${roundRows}</table>
 ${perPlayerRows ? `<h2>场次分布 Games Distribution · avg ${stats.avgGames} · min ${stats.minGames} / max ${stats.maxGames}</h2>
 <table class="dist-table"><tbody>${perPlayerRows}</tbody></table>` : ""}
@@ -1691,7 +1691,7 @@ ${perPlayerRows ? `<h2>场次分布 Games Distribution · avg ${stats.avgGames} 
             <button onClick={copyText} style={{
               width: "100%", padding: "13px 0", borderRadius: 12, fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer",
               background: copied ? "#14532d" : EMERALD,
-            } className="c-white">{copied ? (lang==="en"?"✓ Copied! Paste to share":"✓ 已复制！直接粘贴发给队友") : (lang==="en"?"📋 Copy Schedule":"📋 一键复制赛程")}</button>
+            }} className="c-white">{copied ? (lang==="en"?"✓ Copied! Paste to share":"✓ 已复制！直接粘贴发给队友") : (lang==="en"?"📋 Copy Schedule":"📋 一键复制赛程")}</button>
           </div>
         )}
 
