@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Build: 2026-03-21 22:16:52 -->
+<!-- Build: 2026-03-21 22:21:07 -->
 <html lang="zh">
 <head>
   <meta charset="UTF-8"/>
@@ -891,7 +891,7 @@ function ShareModal({ result, matchMode, onClose }) {
       .join("");
 
     const html = `<!DOCTYPE html>
-<!-- Build: 2026-03-21 22:16:52 -->
+<!-- Build: 2026-03-21 22:21:07 -->
 <html lang="zh">
 <head>
 <meta charset="UTF-8"/>
@@ -1300,6 +1300,61 @@ function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, o
 }
 
 /* ── BasicPanel ── */
+
+
+/* ── History-aware scheduler ── */
+function schedWithHistory(players, mode, targetGames, opposedIn, teamedIn, gcIn) {
+  opposedIn = opposedIn || {};
+  teamedIn  = teamedIn  || {};
+  gcIn      = gcIn      || {};
+  const ms = players.filter(p => p.gender === "M");
+  const fs = players.filter(p => p.gender === "F");
+  const allMatches = getAllMatches(mode, ms, fs);
+  if (!allMatches.length) return [];
+  const opposed = Object.assign({}, opposedIn);
+  const teamed  = Object.assign({}, teamedIn);
+  const gc      = Object.assign({}, gcIn);
+  return runScheduleWithState(shuffle([...allMatches]), targetGames, opposed, teamed, gc);
+}
+
+function runScheduleWithState(allMatches, targetGames, opposed, teamed, gc) {
+  const remaining = [...allMatches];
+  const rounds = [];
+  const played = new Set();
+  while (remaining.length > 0) {
+    const eligible = remaining.filter(m =>
+      !played.has(matchFingerprint(m)) && !exceedsHardCap(m, gc, targetGames)
+    );
+    if (eligible.length === 0) break;
+    eligible.sort((x, y) => matchPriority(y, opposed, teamed, gc) - matchPriority(x, opposed, teamed, gc));
+    const used = new Set(), round = [], playedSet = new Set();
+    for (let pass = 0; pass < 2; pass++) {
+      for (const m of eligible) {
+        if (playedSet.has(m)) continue;
+        const ids = [...m.teamA, ...m.teamB].map(p => p.id);
+        if (ids.some(id => used.has(id))) continue;
+        if (pass === 0 && ids.some(id => gcGet(gc, id) >= targetGames + 1)) continue;
+        ids.forEach(id => used.add(id));
+        round.push(m); playedSet.add(m);
+        const ap = m.teamA.map(p => baseId(p.id));
+        const bp = m.teamB.map(p => baseId(p.id));
+        if (ap.length === 2) mInc(teamed, ap[0], ap[1]);
+        if (bp.length === 2) mInc(teamed, bp[0], bp[1]);
+        for (const a of ap) for (const b of bp) mInc(opposed, a, b);
+        gcInc(gc, ids);
+        played.add(matchFingerprint(m));
+      }
+    }
+    for (let i = remaining.length - 1; i >= 0; i--) {
+      if (playedSet.has(remaining[i])) remaining.splice(i, 1);
+    }
+    if (round.length === 0) break;
+    rounds.push(round);
+    if (rounds.length >= targetGames * 3) break;
+  }
+  return rounds;
+}
+
 
 function buildGcFromRounds(rds) {
   const gc = {};
