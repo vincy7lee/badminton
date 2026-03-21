@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Build: 2026-03-21 19:33:36 -->
+<!-- Build: 2026-03-21 19:57:33 -->
 <html lang="zh">
 <head>
   <meta charset="UTF-8"/>
@@ -629,13 +629,14 @@ const LEVEL_RESULTS = {
     desc:"业余高手水平！战术意识强，技术全面，可以带动初学者了。" },
 };
 
-const CHOICES = [
-  { label:lang==="en"?"Yes":lang==="zh"?"会":"会 Yes", en:"Yes",        score:3, bg:"rgba(22,163,74,0.12)",  cls:"c-green" },
-  { label:lang==="en"?"Usually":lang==="zh"?"有时会":"有时会 Usually", en:"Usually", score:2, bg:"rgba(2,132,199,0.10)",  cls:"c-sky" },
-  { label:lang==="en"?"Occasionally":lang==="zh"?"偶尔":"偶尔 Occasionally", en:"Occasionally",   score:1, bg:"rgba(217,119,6,0.10)",  cls:"c-amber" },
-  { label:lang==="en"?"No":lang==="zh"?"不会":"不会 No", en:"No",       score:0, bg:"rgba(225,29,72,0.10)",  cls:"c-rose" },
-];
-
+function getChoices(lang) {
+  return [
+    { label:lang==="en"?"Yes":lang==="zh"?"会":"会 Yes",                   en:"Yes",           score:3, bg:"rgba(22,163,74,0.12)",   cls:"c-green" },
+    { label:lang==="en"?"Usually":lang==="zh"?"有时会":"有时会 Usually",     en:"Usually",       score:2, bg:"rgba(2,132,199,0.10)",   cls:"c-sky" },
+    { label:lang==="en"?"Occasionally":lang==="zh"?"偶尔":"偶尔 Occasionally", en:"Occasionally", score:1, bg:"rgba(217,119,6,0.10)",   cls:"c-amber" },
+    { label:lang==="en"?"No":lang==="zh"?"不会":"不会 No",                 en:"No",            score:0, bg:"rgba(225,29,72,0.10)",  cls:"c-rose" },
+  ];
+}
 const MAX_QUESTIONS = 8;
 const MIN_QUESTIONS = 5;
 
@@ -728,7 +729,7 @@ function SkillQuiz({ onDone, onClose }) {
 
           {/* 4 choices */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            {CHOICES.map(c => (
+            {getChoices(lang).map(c => (
               <button key={c.score} onClick={() => handleAnswer(c.score)}
                 style={{ padding:"13px 8px", borderRadius:14, fontWeight:900, fontSize:14,
                   border: answered === c.score ? "2px solid currentColor" : "2px solid transparent",
@@ -903,7 +904,7 @@ function ShareModal({ result, matchMode, onClose }) {
       .join("");
 
     const html = `<!DOCTYPE html>
-<!-- Build: 2026-03-21 19:33:36 -->
+<!-- Build: 2026-03-21 19:57:33 -->
 <html lang="zh">
 <head>
 <meta charset="UTF-8"/>
