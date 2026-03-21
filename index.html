@@ -422,83 +422,10 @@ function generateRoomCode() {
 }
 
 
-async function sbFetch(path, options = {}) {
-  const res = await fetch(SB_URL + path, {
-    ...options,
-    headers: {
-      "apikey": SB_KEY,
-      "Authorization": "Bearer " + SB_KEY,
-      "Content-Type": "application/json",
-      "Prefer": "return=representation",
-      ...(options.headers || {}),
-    },
-  });
-  if (!res.ok) throw new Error(await res.text());
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
-}
-
-async function roomLoad(code) {
-  const data = await sbFetch(`/rest/v1/bmt_rooms?code=eq.${encodeURIComponent(code)}&select=players`);
-  return data && data.length > 0 ? data[0].players : null;
-}
-
-async function roomSave(code, players) {
-  await sbFetch(`/rest/v1/bmt_rooms`, {
-    method: "POST",
-    headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-    body: JSON.stringify({ code, players, updated_at: new Date().toISOString() }),
-  });
-}
-// roomSave kept for backward compat
-
-function generateRoomCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return code;
-}
-
-function skillLabel(v) { return SKILL_LABELS[v] || SKILL_LABELS[Math.round(v*2)/2] || ""; }
 
 
 
-async function sbFetch(path, options = {}) {
-  const res = await fetch(SB_URL + path, {
-    ...options,
-    headers: {
-      "apikey": SB_KEY,
-      "Authorization": "Bearer " + SB_KEY,
-      "Content-Type": "application/json",
-      "Prefer": "return=representation",
-      ...(options.headers || {}),
-    },
-  });
-  if (!res.ok) throw new Error(await res.text());
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
-}
 
-async function roomLoad(code) {
-  const data = await sbFetch(`/rest/v1/bmt_rooms?code=eq.${encodeURIComponent(code)}&select=players`);
-  return data && data.length > 0 ? data[0].players : null;
-}
-
-async function roomSave(code, players) {
-  await sbFetch(`/rest/v1/bmt_rooms`, {
-    method: "POST",
-    headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-    body: JSON.stringify({ code, players, updated_at: new Date().toISOString() }),
-  });
-}
-// roomSave kept for backward compat
-
-function generateRoomCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return code;
-}
 
 
 
@@ -1528,27 +1455,6 @@ function AdvancedPanel(){
   </div>;
 }
 
-function App(){
-  const [tab,setTab]=useState("basic");
-  return <div style={{background:BG,minHeight:"100vh",fontFamily:"'PingFang SC','Microsoft YaHei',sans-serif",color:"#111a11"}}>
-    <style>{`*{box-sizing:border-box}input::placeholder{opacity:.4}button{font-family:inherit}`}</style>
-    <div style={{maxWidth:400,margin:"0 auto",padding:"32px 16px 64px"}}>
-      <div style={{textAlign:"center",marginBottom:28}}>
-        <div style={{fontSize:40,marginBottom:8}}>🏸</div>
-        <h1 style={{fontSize:24,fontWeight:900,margin:0,letterSpacing:-.5}}>羽毛球赛程安排</h1>
-        <p style={{fontSize:11,marginTop:4,letterSpacing:3,opacity:.4}}>BADMINTON MATCH SCHEDULER</p>
-      </div>
-      <div style={{display:"flex",gap:4,background:"rgba(0,0,0,.04)",border:"1px solid rgba(0,0,0,.05)",padding:4,borderRadius:18,marginBottom:24}}>
-        {[["basic","⚡ 快速模式 Quick"],["advanced","🎯 高级模式 Advanced"]].map(([id,l])=>(
-          <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"10px 0",borderRadius:14,fontSize:13,fontWeight:900,border:"none",cursor:"pointer",background:tab===id?"#16a34a":"transparent",color:tab===id?"#fff":"rgba(17,26,17,.45)"}}>{l}</button>
-        ))}
-      </div>
-      {tab==="basic"&&<BasicPanel/>}
-      {tab==="advanced"&&<AdvancedPanel/>}
-      <div style={{textAlign:"center",fontSize:9,marginTop:40,letterSpacing:3,textTransform:"uppercase",opacity:.3}}>覆盖优化 · 水平匹配 · 性别借位</div>
-    </div>
-  </div>;
-}
 
 
 
