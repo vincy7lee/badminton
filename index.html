@@ -1,5 +1,5 @@
- <!DOCTYPE html>
-<!-- Build: 2026-03-21 19:57:33 -->
+<!DOCTYPE html>
+<!-- Build: 2026-03-21 20:16:35 -->
 <html lang="zh">
 <head>
   <meta charset="UTF-8"/>
@@ -65,20 +65,7 @@ function BmtStyles() {
 /* ═══ LANGUAGE SYSTEM ═══ */
 const LangContext = React.createContext("bi");
 function useLang() { return React.useContext(LangContext); }
-function LangSwitcher({ lang, setLang }) {
-  return (
-    <div style={{ display:"flex", gap:3, background:"rgba(0,0,0,0.04)", padding:3, borderRadius:20, border:"1px solid rgba(0,0,0,0.06)" }}>
-      {[{id:"zh",label:"中文"},{id:"bi",label:"中/EN"},{id:"en",label:"English"}].map(o => (
-        <button key={o.id} onClick={()=>setLang(o.id)} style={{
-          padding:"4px 10px", borderRadius:16, fontSize:11, fontWeight:700,
-          border:"none", cursor:"pointer",
-          background: lang===o.id ? EMERALD : "transparent",
-          color: lang===o.id ? "#fff" : "rgba(17,26,17,0.45)",
-        }}>{o.label}</button>
-      ))}
-    </div>
-  );
-}
+function LangSwitcher({ lang, setLang }) { return null; }
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -904,7 +891,7 @@ function ShareModal({ result, matchMode, onClose }) {
       .join("");
 
     const html = `<!DOCTYPE html>
-<!-- Build: 2026-03-21 19:57:33 -->
+<!-- Build: 2026-03-21 20:16:35 -->
 <html lang="zh">
 <head>
 <meta charset="UTF-8"/>
@@ -1325,134 +1312,320 @@ function BasicPanel(){
 
 /* ── AdvancedPanel ── */
 function AdvancedPanel(){
+  const lang = useLang();
   const [screen,setScreen]=useState("join"),[input,setInput]=useState(""),[code,setCode]=useState("");
   const [isOwner,setIsOwner]=useState(false);
   const [players,setPlayers]=useState([]),[tab,setTab]=useState("roster");
   const [form,setForm]=useState({name:"",gender:"M",skill:3});
   const [rounds,setRounds]=useState(null),[checked,setChecked]=useState({});
   const [sync,setSync]=useState("");
-  const [myId]=useState(()=>uid()); // simulate current user id
-  const ms=players.filter(p=>p.gender==="M"),fs=players.filter(p=>p.gender==="F");
+  const [targetGames,setTargetGames]=useState(5);
+  const [matchMode,setMatchMode]=useState("random");
+  const [gameMode,setGameMode]=useState("mixed");
+  const [showQuiz,setShowQuiz]=useState(false);
+  const [myId]=useState(()=>{
+    try{let id=localStorage.getItem("bmt_uid");if(!id){id=uid();localStorage.setItem("bmt_uid",id);}return id;}catch{return uid();}
+  });
+  const ownerIdRef=useRef(null);
 
-  function showSync(){setSync("✓ 已同步");setTimeout(()=>setSync(""),2500);}
+  useEffect(()=>{
+    try{
+      const saved=localStorage.getItem("bmt_room_code");
+      if(saved) joinRoom(saved, localStorage.getItem("bmt_room_owner")==="1");
+    }catch{}
+  },[]);
+
+  const ms=players.filter(p=>p.gender==="M"), fs=players.filter(p=>p.gender==="F");
+
+  async function saveRoomState(newPlayers,newRounds,explicitNewOwner,roomCodeOverride){
+    const activeCode=roomCodeOverride||code;
+    if(!activeCode)return;
+    setSync("同步中…");
+    const ownerToSave=explicitNewOwner||ownerIdRef.current||myId;
+    try{
+      await sbFetch(`/rest/v1/bmt_rooms`,{
+        method:"POST",
+        headers:{"Prefer":"resolution=merge-duplicates,return=representation"},
+        body:JSON.stringify({code:activeCode,players:newPlayers,schedule:newRounds?{rounds:newRounds,ts:Date.now()}:null,owner_id:ownerToSave,updated_at:new Date().toISOString()}),
+      });
+      setSync("✓ 已同步");
+    }catch{setSync("⚠ 同步失败");}
+    setTimeout(()=>setSync(""),2500);
+  }
+
+  useEffect(()=>{
+    if(!code)return;
+    const poll=async()=>{
+      try{
+        const data=await sbFetch(`/rest/v1/bmt_rooms?code=eq.${encodeURIComponent(code)}&select=players,schedule,owner_id`);
+        if(!data||!data[0])return;
+        const row=data[0];
+        if(row.players) setPlayers(row.players);
+        if(row.schedule?.rounds) setRounds(row.schedule.rounds);
+        if(row.owner_id){ownerIdRef.current=row.owner_id;setIsOwner(row.owner_id===myId);}
+      }catch{}
+    };
+    poll();
+    const iv=setInterval(poll,4000);
+    return()=>clearInterval(iv);
+  },[code]);
+
   function addP(){
     if(!form.name.trim())return;
-    setPlayers(p=>[...p,{id:uid(),name:form.name.trim(),gender:form.gender,skill:form.skill,addedBy:myId}]);
-    setForm(f=>({...f,name:"",skill:3}));
-    showSync();
+    const newP={id:uid(),name:form.name.trim(),gender:form.gender,skill:form.skill,addedBy:myId};
+    const np=[...players,newP];
+    setPlayers(np);setForm(f=>({...f,name:"",skill:3}));
+    saveRoomState(np,rounds);
   }
-  function delP(id){setPlayers(ps=>ps.filter(x=>x.id!==id));showSync();}
+  function delP(pid){const np=players.filter(x=>x.id!==pid);setPlayers(np);saveRoomState(np,rounds);}
+
   function gen(){
     if(!isOwner)return;
-    setRounds(schedWithHistory(players,"mixed",5));setChecked({});setTab("schedule");showSync();
+    const allM=getAllMatches(gameMode,ms,fs);
+    if(!allM.length)return;
+    const newRounds=matchMode==="balanced"?scheduleBalanced(allM,targetGames):scheduleRoundRobin(allM,targetGames);
+    setRounds(newRounds);setChecked({});setTab("schedule");
+    saveRoomState(players,newRounds);
   }
   function addPlayers(ri,nM,nF){
     if(!isOwner)return;
     const kept=(rounds||[]).slice(0,ri+1);
-    const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
+    const gc=buildGcFromRounds(kept);
+    const {opposed,teamed}=buildOpposedFromRounds(kept);
     const nm=[...ms,...Array.from({length:nM},(_,i)=>({id:uid(),name:`新男${i+1}`,gender:"M",skill:3,addedBy:myId}))];
     const nf=[...fs,...Array.from({length:nF},(_,i)=>({id:uid(),name:`新女${i+1}`,gender:"F",skill:3,addedBy:myId}))];
-    setPlayers([...nm,...nf]);
-    setRounds([...kept,...schedWithHistory([...nm,...nf],"mixed",5,{},{},gc)]);
-    showSync();
+    const np=[...nm,...nf];setPlayers(np);
+    const nr=[...kept,...schedWithHistory(np,gameMode,targetGames,opposed,teamed,gc)];
+    setRounds(nr);saveRoomState(np,nr);
   }
   function removePlayer(ri,ids){
     if(!isOwner)return;
     const kept=(rounds||[]).slice(0,ri+1);
-    const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
-    const np=players.filter(p=>!ids.includes(p.id));
-    setPlayers(np);setRounds([...kept,...schedWithHistory(np,"mixed",5,{},{},gc)]);showSync();
+    const gc=buildGcFromRounds(kept);
+    const {opposed,teamed}=buildOpposedFromRounds(kept);
+    const np=players.filter(p=>!ids.includes(p.id));setPlayers(np);
+    const nr=[...kept,...schedWithHistory(np,gameMode,targetGames,opposed,teamed,gc)];
+    setRounds(nr);saveRoomState(np,nr);
   }
   function moreRounds(ri,n){
     if(!isOwner)return;
     const kept=(rounds||[]).slice(0,ri+1);
-    const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
-    setRounds([...kept,...schedWithHistory(players,"mixed",n,{},{},gc)]);showSync();
+    const gc=buildGcFromRounds(kept);
+    const {opposed,teamed}=buildOpposedFromRounds(kept);
+    const nr=[...kept,...schedWithHistory(players,gameMode,n,opposed,teamed,gc)];
+    setRounds(nr);saveRoomState(players,nr);
   }
+  function transferOwner(newOwnerId){
+    ownerIdRef.current=newOwnerId;setIsOwner(false);
+    saveRoomState(players,rounds,newOwnerId);
+  }
+
+  async function joinRoom(c,asOwner){
+    const code2=c.trim().toUpperCase();if(!code2)return;
+    try{
+      const data=await sbFetch(`/rest/v1/bmt_rooms?code=eq.${encodeURIComponent(code2)}&select=players,schedule,owner_id`);
+      if(data&&data[0]){
+        if(data[0].players) setPlayers(data[0].players);
+        if(data[0].schedule?.rounds) setRounds(data[0].schedule.rounds);
+        const existOwner=data[0].owner_id;
+        ownerIdRef.current=existOwner||(asOwner?myId:null);
+        setIsOwner(asOwner||existOwner===myId);
+      }else{
+        ownerIdRef.current=myId;
+        await saveRoomState([],null,myId,code2);
+        setIsOwner(true);
+      }
+    }catch{ownerIdRef.current=asOwner?myId:null;setIsOwner(asOwner);}
+    setCode(code2);
+    try{localStorage.setItem("bmt_room_code",code2);localStorage.setItem("bmt_room_owner",asOwner?"1":"0");}catch{}
+    setScreen("room");
+  }
+
+  const MODES=[
+    {id:"mixed",        label:"混合双打", en:"Mixed Doubles",   icon:"⚡", needM:1,needF:1},
+    {id:"mens_doubles", label:"男子双打", en:"Men's Doubles",   icon:"💪", needM:2,needF:0},
+    {id:"womens_doubles",label:"女子双打",en:"Women's Doubles", icon:"🌸", needM:0,needF:2},
+    {id:"mens_singles", label:"男子单打", en:"Men's Singles",   icon:"🔥", needM:2,needF:0},
+    {id:"womens_singles",label:"女子单打",en:"Women's Singles", icon:"✨", needM:0,needF:2},
+  ];
 
   if(screen==="join") return (
     <div style={{...S.card,padding:24,display:"flex",flexDirection:"column",gap:14,textAlign:"center"}}>
       <div style={{fontSize:36}}>🏸</div>
-      <div><div style={{fontWeight:900,fontSize:18,marginBottom:4}}>加入或创建房间</div>
-        <div style={{fontSize:12,opacity:.5}}>同一房间共享球员名单和赛程，实时同步</div></div>
-      <input value={input} onChange={e=>setInput(e.target.value.toUpperCase())} placeholder="输入房间码 e.g. ABC123"
+      <div>
+        <div style={{fontWeight:900,fontSize:18,marginBottom:4}}>加入或创建房间 Join / Create Room</div>
+        <div style={{fontSize:12,opacity:.5}}>同一房间实时共享球员和赛程 · Share roster & schedule in real time</div>
+      </div>
+      <input value={input} onChange={e=>setInput(e.target.value.toUpperCase())} placeholder="房间码 Room code e.g. BMT-AB12"
         style={{background:BG3,border:`1px solid ${BORDER}`,borderRadius:12,padding:"12px 16px",fontSize:18,fontWeight:900,letterSpacing:4,textAlign:"center",outline:"none",width:"100%"}}/>
-      <button onClick={()=>{setCode(input||"DEMO01");setIsOwner(false);setScreen("room");}}
-        style={{width:"100%",padding:"13px 0",borderRadius:12,fontWeight:900,fontSize:15,background:input.trim()?EMERALD:"rgba(0,0,0,.1)",border:"none",cursor:"pointer",color:input.trim()?"#fff":"rgba(0,0,0,.3)"}}>加入房间 Join Room</button>
-      <button onClick={()=>{const c="BMT-"+Math.random().toString(36).slice(2,6).toUpperCase();setCode(c);setInput(c);setIsOwner(true);setScreen("room");}}
-        style={{width:"100%",padding:"13px 0",borderRadius:12,fontWeight:900,fontSize:15,background:"rgba(0,0,0,.06)",border:"none",cursor:"pointer"}}>✨ 创建新房间（你是房主）</button>
+      <button onClick={()=>joinRoom(input,false)}
+        style={{width:"100%",padding:"13px 0",borderRadius:12,fontWeight:900,fontSize:15,background:input.trim()?EMERALD:"rgba(0,0,0,.1)",border:"none",cursor:"pointer",color:input.trim()?"#fff":"rgba(0,0,0,.3)"}}>
+        加入房间 Join Room
+      </button>
+      <button onClick={()=>{const c="BMT-"+Math.random().toString(36).slice(2,6).toUpperCase();joinRoom(c,true);}}
+        style={{width:"100%",padding:"13px 0",borderRadius:12,fontWeight:900,fontSize:15,background:"rgba(0,0,0,.06)",border:"none",cursor:"pointer"}}>
+        ✨ 创建新房间 Create New Room
+      </button>
     </div>
   );
 
   return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    {showQuiz&&<SkillQuiz onDone={lv=>{setForm(f=>({...f,skill:Math.round(lv*2)/2}));setShowQuiz(false);}} onClose={()=>setShowQuiz(false)}/>}
+
     {/* Room banner */}
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:EMERALD_L,border:"1px solid rgba(22,163,74,.25)",borderRadius:12,padding:"10px 14px"}}>
       <div>
         <div style={{fontSize:10,fontWeight:700,letterSpacing:2,opacity:.6,textTransform:"uppercase"}}>
-          房间码 · {isOwner?"👑 你是房主":"成员"}
+          房间码 Room Code · {isOwner?"👑 房主 Host":"成员 Member"}
         </div>
         <div style={{fontSize:20,fontWeight:900,letterSpacing:4,color:EMERALD}}>{code}</div>
+        <div style={{fontSize:9,opacity:.35,marginTop:2}}>ID: {myId.slice(0,6)}</div>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:6}}>
         {sync&&<span style={{fontSize:10,color:EMERALD}}>{sync}</span>}
-        <button style={{fontSize:11,fontWeight:700,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:"rgba(22,163,74,.15)",color:"#14532d"}}>复制</button>
-        {isOwner&&<button style={{fontSize:11,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:AMBER_L,color:AMBER,fontWeight:700}} title="转让房主">👑转让</button>}
-        <button onClick={()=>setScreen("join")} style={{fontSize:11,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)"}}>退出</button>
+        <button onClick={()=>{try{navigator.clipboard.writeText(code);}catch{}}} style={{fontSize:11,fontWeight:700,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:"rgba(22,163,74,.15)",color:"#14532d"}}>复制 Copy</button>
+        {isOwner&&<button onClick={()=>{const id=window.prompt("新房主ID (New owner ID):");if(id)transferOwner(id.trim());}} style={{fontSize:11,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:AMBER_L,color:AMBER,fontWeight:700}}>👑 转让</button>}
+        <button onClick={()=>{setScreen("join");setCode("");try{localStorage.removeItem("bmt_room_code");}catch{}}} style={{fontSize:11,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)"}}>退出 Leave</button>
       </div>
     </div>
 
     {/* Sub-tabs */}
     <div style={{display:"flex",gap:4,background:"rgba(0,0,0,.04)",padding:4,borderRadius:14,border:`1px solid ${BORDER}`}}>
-      {[["roster",`名册 (${players.length})`],["schedule","赛程安排"]].map(([id,l])=>(
+      {[["roster",`名册 Roster (${players.length})`],["schedule","赛程安排 Schedule"]].map(([id,l])=>(
         <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"8px 0",borderRadius:10,fontSize:13,fontWeight:700,border:"none",cursor:"pointer",background:tab===id?EMERALD:"transparent",color:tab===id?"#fff":"rgba(17,26,17,.45)"}}>{l}</button>
       ))}
     </div>
 
+    {/* Roster tab */}
     {tab==="roster"&&<div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
       <div style={S.lbl}>添加球员 Add Player</div>
       <div style={{display:"flex",gap:8}}>
-        <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addP()} placeholder="球员名字"
+        <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addP()}
+          placeholder="球员名字 Player name"
           style={{flex:1,background:BG3,border:`1px solid ${BORDER}`,borderRadius:12,padding:"10px 12px",fontSize:14,outline:"none"}}/>
         <div style={{display:"flex",borderRadius:12,overflow:"hidden",border:`1px solid ${BORDER}`}}>
-          {["M","F"].map(g=><button key={g} onClick={()=>setForm(f=>({...f,gender:g}))} style={{padding:"8px 12px",fontSize:13,fontWeight:700,border:"none",cursor:"pointer",background:form.gender===g?(g==="M"?"#0ea5e9":"#f43f5e"):"rgba(0,0,0,.04)",color:form.gender===g?"#fff":"rgba(17,26,17,.5)"}}>{g==="M"?"男":"女"}</button>)}
+          {["M","F"].map(g=>(
+            <button key={g} onClick={()=>setForm(f=>({...f,gender:g}))}
+              style={{padding:"8px 14px",fontSize:13,fontWeight:700,border:"none",cursor:"pointer",
+                background:form.gender===g?(g==="M"?"#0ea5e9":"#f43f5e"):"rgba(0,0,0,.04)",
+                color:form.gender===g?"#fff":"rgba(17,26,17,.5)"}}>
+              {g==="M"?"男 M":"女 F"}
+            </button>
+          ))}
         </div>
       </div>
       <div>
-        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6}}><span style={{opacity:.5}}>技术水平</span><span style={{fontWeight:700}}>Lv{form.skill}</span></div>
-        <input type="range" min={2} max={12} step={1} value={form.skill*2} onChange={e=>setForm(f=>({...f,skill:+e.target.value/2}))} style={{width:"100%",accentColor:EMERALD}}/>
-        <button style={{width:"100%",marginTop:6,padding:"8px 0",borderRadius:12,fontWeight:700,fontSize:12,border:`1px dashed ${VIOLET}`,cursor:"pointer",background:VIOLET_L,color:VIOLET}}>🎯 帮我评估等级</button>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6}}>
+          <span style={{opacity:.5}}>技术水平 Skill Level</span>
+          <span style={{fontWeight:700}}>Lv{form.skill} · {skillLabel(form.skill)}</span>
+        </div>
+        <input type="range" min={2} max={12} step={1} value={form.skill*2}
+          onChange={e=>setForm(f=>({...f,skill:+e.target.value/2}))}
+          style={{width:"100%",accentColor:EMERALD}}/>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:9,opacity:.4,marginTop:2}}>
+          <span>Lv1 新手</span><span>Lv3.5</span><span>Lv6 中高</span>
+        </div>
+        <button onClick={()=>setShowQuiz(true)}
+          style={{width:"100%",marginTop:8,padding:"8px 0",borderRadius:12,fontWeight:700,fontSize:12,
+            border:`1px dashed ${VIOLET}`,cursor:"pointer",background:VIOLET_L,color:VIOLET}}>
+          🎯 不确定？帮我评估等级 Assess My Level
+        </button>
       </div>
-      <button onClick={addP} disabled={!form.name.trim()} style={{width:"100%",padding:"10px 0",borderRadius:12,fontWeight:700,fontSize:14,border:"none",background:form.name.trim()?EMERALD:"rgba(0,0,0,.05)",cursor:form.name.trim()?"pointer":"not-allowed",color:form.name.trim()?"#fff":"rgba(0,0,0,.25)"}}>+ 添加球员 Add Player</button>
-
-      {players.length===0?<div style={{textAlign:"center",padding:"20px 0",opacity:.4,fontSize:13}}>暂无球员，请添加</div>:
-        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+      <button onClick={addP} disabled={!form.name.trim()}
+        style={{width:"100%",padding:"10px 0",borderRadius:12,fontWeight:700,fontSize:14,border:"none",
+          background:form.name.trim()?EMERALD:"rgba(0,0,0,.05)",
+          cursor:form.name.trim()?"pointer":"not-allowed",
+          color:form.name.trim()?"#fff":"rgba(0,0,0,.25)"}}>
+        + 添加球员 Add Player
+      </button>
+      {players.length===0
+        ?<div style={{textAlign:"center",padding:"20px 0",opacity:.4,fontSize:13}}>暂无球员，请添加 · No players yet</div>
+        :<div style={{display:"flex",flexDirection:"column",gap:6}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span style={{fontSize:11,opacity:.5}}>男 {ms.length} · 女 {fs.length}</span>
-            {isOwner&&<button onClick={()=>{if(window.confirm("清空全部？"))setPlayers([]);}} style={{fontSize:11,background:"none",border:"none",cursor:"pointer",color:ROSE,opacity:.6}}>清空全部</button>}
+            {isOwner&&<button onClick={()=>{if(window.confirm("清空全部球员？Clear all players?"))setPlayers([]);}}
+              style={{fontSize:11,background:"none",border:"none",cursor:"pointer",color:ROSE,opacity:.6}}>
+              清空全部 Clear All
+            </button>}
           </div>
           {players.map(p=>{
             const mine=p.addedBy===myId||isOwner;
             return <div key={p.id} style={{...S.card,padding:"9px 12px",display:"flex",alignItems:"center",gap:10}}>
-              <span style={{width:26,height:26,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",background:p.gender==="M"?SKY_L:ROSE_L,color:p.gender==="M"?SKY:ROSE,fontSize:10,fontWeight:900,flexShrink:0}}>{p.gender}</span>
+              <span style={{width:26,height:26,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
+                background:p.gender==="M"?SKY_L:ROSE_L,color:p.gender==="M"?SKY:ROSE,fontSize:10,fontWeight:900,flexShrink:0}}>
+                {p.gender==="M"?"M":"F"}
+              </span>
               <span style={{flex:1,fontWeight:500}}>{p.name}</span>
               <span style={{fontSize:11,color:EMERALD,fontWeight:700}}>Lv{p.skill}</span>
-              {mine&&<button onClick={()=>delP(p.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,opacity:.4}}>✕</button>}
-              {!mine&&<span style={{fontSize:10,opacity:.3}}>🔒</span>}
+              {mine
+                ?<button onClick={()=>delP(p.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,opacity:.4}}>✕</button>
+                :<span style={{fontSize:10,opacity:.3}}>🔒</span>}
             </div>;
           })}
         </div>}
     </div>}
 
+    {/* Schedule tab */}
     {tab==="schedule"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
-      {isOwner
-        ?<button onClick={gen} disabled={players.length<2} style={{width:"100%",padding:"14px 0",borderRadius:12,fontWeight:900,fontSize:14,border:"none",background:players.length>=2?EMERALD:"rgba(0,0,0,.05)",cursor:players.length>=2?"pointer":"not-allowed",color:players.length>=2?"#fff":"rgba(0,0,0,.25)"}}>🏸 生成赛程 Generate Schedule</button>
-        :<div style={{...S.card2,padding:12,textAlign:"center",fontSize:12,opacity:.6}}>等待房主生成赛程…</div>
-      }
-      {rounds&&<ResultView rounds={rounds} mode="mixed" checked={checked} setChecked={setChecked}
+      {isOwner&&<>
+        {/* Game Mode */}
+        <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:8}}>
+          <div style={S.lbl}>比赛模式 Game Mode</div>
+          {MODES.map(m=>{
+            const disabled=m.id!=="mixed"&&(m.needM>ms.length||m.needF>fs.length);
+            const active=gameMode===m.id;
+            return <button key={m.id} onClick={()=>!disabled&&setGameMode(m.id)} disabled={disabled}
+              style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:12,width:"100%",
+                textAlign:"left",cursor:disabled?"not-allowed":"pointer",
+                border:`1px solid ${active?"rgba(22,163,74,.45)":disabled?"rgba(0,0,0,.04)":"rgba(0,0,0,.07)"}`,
+                background:active?EMERALD_L:disabled?"rgba(0,0,0,.02)":"rgba(0,0,0,.03)",
+                color:active?"#14532d":disabled?"rgba(17,26,17,.25)":"rgba(17,26,17,.6)"}}>
+              <span style={{fontSize:15}}>{m.icon}</span>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,fontSize:13}}>{m.label}</div>
+                <div style={{fontSize:10,opacity:.5}}>{m.en}</div>
+              </div>
+              {active&&<span style={{color:EMERALD}}>✓</span>}
+            </button>;
+          })}
+        </div>
+        {/* Match Mode */}
+        <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:8}}>
+          <div style={S.lbl}>匹配方式 Matching Mode</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {[{id:"random",icon:"🔀",label:"随机匹配",en:"Random",desc:"最大化覆盖率 Max coverage"},
+              {id:"balanced",icon:"⚖️",label:"能力匹配",en:"Skill-Balanced",desc:"相近水平对决 Balanced skill"}
+            ].map(opt=>(
+              <button key={opt.id} onClick={()=>setMatchMode(opt.id)}
+                style={{padding:12,borderRadius:12,textAlign:"left",cursor:"pointer",
+                  border:`1px solid ${matchMode===opt.id?"rgba(124,58,237,.4)":"rgba(0,0,0,.07)"}`,
+                  background:matchMode===opt.id?VIOLET_L:"rgba(0,0,0,.03)",
+                  color:matchMode===opt.id?VIOLET:"rgba(17,26,17,.6)"}}>
+                <div style={{fontSize:18}}>{opt.icon}</div>
+                <div style={{fontWeight:700,fontSize:13,marginTop:4}}>{opt.label}</div>
+                <div style={{fontSize:10,opacity:.6}}>{opt.en}</div>
+                <div style={{fontSize:10,opacity:.35,marginTop:2}}>{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <TargetGamesInput value={targetGames} onChange={setTargetGames}/>
+        <button onClick={gen} disabled={players.length<2}
+          style={{width:"100%",padding:"14px 0",borderRadius:12,fontWeight:900,fontSize:14,border:"none",
+            background:players.length>=2?EMERALD:"rgba(0,0,0,.05)",
+            cursor:players.length>=2?"pointer":"not-allowed",
+            color:players.length>=2?"#fff":"rgba(0,0,0,.25)"}}>
+          🏸 生成赛程 Generate Schedule
+        </button>
+      </>}
+      {!isOwner&&<div style={{...S.card2,padding:12,textAlign:"center",fontSize:12,opacity:.6}}>等待房主生成赛程 · Waiting for host to generate…</div>}
+      {rounds&&<ResultView rounds={rounds} mode={gameMode} matchMode={matchMode} checked={checked} setChecked={setChecked}
         onRegen={isOwner?gen:null} onAddPlayers={isOwner?addPlayers:null}
         onRemovePlayers={isOwner?removePlayer:null} onMoreRounds={isOwner?moreRounds:null}
         isOwner={isOwner}/>}
-      {!rounds&&<div style={{textAlign:"center",padding:"24px 0",opacity:.4,fontSize:13}}>{players.length>=2?(isOwner?"点上方生成赛程":"等待房主生成赛程"):"请先添加至少2名球员"}</div>}
+      {!rounds&&<div style={{textAlign:"center",padding:"24px 0",opacity:.4,fontSize:13}}>
+        {players.length>=2?(isOwner?"点上方生成赛程 · Tap above to generate":"等待房主生成赛程 · Waiting for host"):"请先添加至少2名球员 · Add at least 2 players"}
+      </div>}
     </div>}
   </div>;
 }
