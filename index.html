@@ -1177,17 +1177,17 @@ function AdvancedPanel(){
   }, []);
   const ms=players.filter(p=>p.gender==="M"),fs=players.filter(p=>p.gender==="F");
 
-  async function saveRoomState(newPlayers, newRounds, explicitNewOwner) {
-    if(!code) return;
+  async function saveRoomState(newPlayers, newRounds, explicitNewOwner, roomCodeOverride) {
+    const activeCode = roomCodeOverride || code;
+    if(!activeCode) return;
     setSync("同步中…");
-    // Always use the stored owner — only override on explicit transfer
     const ownerToSave = explicitNewOwner || ownerIdRef.current || myId;
     try {
       await sbFetch(`/rest/v1/bmt_rooms`, {
         method:"POST",
         headers:{"Prefer":"resolution=merge-duplicates,return=representation"},
         body:JSON.stringify({
-          code,
+          code: activeCode,
           players: newPlayers,
           schedule: newRounds ? {rounds:newRounds, ts:Date.now()} : null,
           owner_id: ownerToSave,
@@ -1297,7 +1297,8 @@ function AdvancedPanel(){
       } else {
         // New room — I am the owner
         ownerIdRef.current = myId;
-        await saveRoomState([], null);
+        // Pass code2 directly since setCode hasn't taken effect yet
+        await saveRoomState([], null, myId, code2);
         setIsOwner(true);
       }
     } catch { setIsOwner(asOwner); }
@@ -1325,9 +1326,11 @@ function AdvancedPanel(){
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:EMERALD_L,border:"1px solid rgba(22,163,74,.25)",borderRadius:12,padding:"10px 14px"}}>
       <div>
         <div style={{fontSize:10,fontWeight:700,letterSpacing:2,opacity:.6,textTransform:"uppercase"}}>
-          房间码 · {isOwner?"👑 房主":"成员"}
+          {lang==="en"?"ROOM CODE":"房间码"} · {isOwner?"👑 房主 Host":"成员 Member"}
         </div>
-        <div style={{fontSize:9,opacity:.4,letterSpacing:1}}>我的ID: {myId}</div>
+        <div style={{fontSize:9,opacity:.4,letterSpacing:1,marginTop:2}}>
+          ID: {myId.slice(0,6)} {isOwner?"(房主 Host)":""}
+        </div>
         <div style={{fontSize:20,fontWeight:900,letterSpacing:4,color:EMERALD}}>{code}</div>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:6}}>
