@@ -1361,7 +1361,7 @@ function AdvancedPanel(){
       </div>
       <button onClick={addP} disabled={!form.name.trim()} style={{width:"100%",padding:"10px 0",borderRadius:12,fontWeight:700,fontSize:14,border:"none",background:form.name.trim()?EMERALD:"rgba(0,0,0,.05)",cursor:form.name.trim()?"pointer":"not-allowed",color:form.name.trim()?"#fff":"rgba(0,0,0,.25)"}}>+ 添加球员 Add Player</button>
 
-      players.length===0?<div style={{textAlign:"center",padding:"20px 0",opacity:.4,fontSize:13}}>{lang==="en"?"No players yet — add some above":lang==="zh"?"暂无球员，请添加":"暂无球员 No players yet"}</div>:
+      {players.length===0?<div style={{textAlign:"center",padding:"20px 0",opacity:.4,fontSize:13}}>{lang==="en"?"No players yet — add some above":lang==="zh"?"暂无球员，请添加":"暂无球员 No players yet"}</div>:
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span style={{fontSize:11,opacity:.5}}>男 {ms.length} · 女 {fs.length}</span>
