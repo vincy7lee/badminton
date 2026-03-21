@@ -1340,7 +1340,7 @@ function AdvancedPanel(){
 
     {/* Sub-tabs */}
     <div style={{display:"flex",gap:4,background:"rgba(0,0,0,.04)",padding:4,borderRadius:14,border:`1px solid ${BORDER}`}}>
-      [["roster",lang==="en"?`Roster (${players.length})`:lang==="zh"?`名册 (${players.length})`:`名册 Roster (${players.length})`],["schedule",lang==="en"?`Schedule${rounds?" ✓":""}`:lang==="zh"?"赛程安排":"赛程安排 Schedule"]].map(([id,l])=>(
+      {[["roster",lang==="en"?`Roster (${players.length})`:lang==="zh"?`名册 (${players.length})`:`名册 Roster (${players.length})`],["schedule",lang==="en"?`Schedule${rounds?" ✓":""}`:lang==="zh"?"赛程安排":"赛程安排 Schedule"]].map(([id,l])=>(
         <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"8px 0",borderRadius:10,fontSize:13,fontWeight:700,border:"none",cursor:"pointer",background:tab===id?EMERALD:"transparent",color:tab===id?"#fff":"rgba(17,26,17,.45)"}}>{l}</button>
       ))}
     </div>
@@ -1348,7 +1348,7 @@ function AdvancedPanel(){
     {tab==="roster"&&<div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
       <div style={S.lbl}>{lang==="en"?"Add Player":lang==="zh"?"添加球员":"添加球员 Add Player"}</div>
       <div style={{display:"flex",gap:8}}>
-        <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addP()} placeholder=lang==="en"?"Player name":lang==="zh"?"球员名字":lang==="en"?"Player name":lang==="zh"?"球员名字":"球员名字 Player name"
+        <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addP()} placeholder={lang==="en"?"Player name":lang==="zh"?"球员名字":"球员名字 Player name"}
           style={{flex:1,background:BG3,border:`1px solid ${BORDER}`,borderRadius:12,padding:"10px 12px",fontSize:14,outline:"none"}}/>
         <div style={{display:"flex",borderRadius:12,overflow:"hidden",border:`1px solid ${BORDER}`}}>
           {["M","F"].map(g=><button key={g} onClick={()=>setForm(f=>({...f,gender:g}))} style={{padding:"8px 12px",fontSize:13,fontWeight:700,border:"none",cursor:"pointer",background:form.gender===g?(g==="M"?"#0ea5e9":"#f43f5e"):"rgba(0,0,0,.04)",color:form.gender===g?"#fff":"rgba(17,26,17,.5)"}}>{g==="M"?(lang==="en"?"M":lang==="zh"?"男":"男 M"):(lang==="en"?"F":lang==="zh"?"女":"女 F")}</button>)}
