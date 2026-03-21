@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Build: 2026-03-21 20:16:35 -->
+<!-- Build: 2026-03-21 20:43:12 -->
 <html lang="zh">
 <head>
   <meta charset="UTF-8"/>
@@ -891,7 +891,7 @@ function ShareModal({ result, matchMode, onClose }) {
       .join("");
 
     const html = `<!DOCTYPE html>
-<!-- Build: 2026-03-21 20:16:35 -->
+<!-- Build: 2026-03-21 20:43:12 -->
 <html lang="zh">
 <head>
 <meta charset="UTF-8"/>
@@ -1138,7 +1138,7 @@ function ExtraRoundsModal({onConfirm, onClose}){
 }
 
 /* ── ResultView ── */
-function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, onRemovePlayers, onMoreRounds, isOwner}){
+function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, onRemovePlayers, onMoreRounds, isOwner, players=[]}){
   const [open,setOpen]=useState(0);
   const [addModal,setAddModal]=useState(null);   // afterRound index
   const [removeModal,setRemoveModal]=useState(null); // afterRound index
@@ -1224,8 +1224,7 @@ function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, o
           <DashedSection label="− 有人离开">
             <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
               <div style={{fontSize:12,opacity:.6}}>第 {ri+1} 轮后移除选手，接下来赛程将更新</div>
-              <button onClick={()=>setRemoveModal({ri, players:[{id:"p1",name:"张三",gender:"M",skill:3},{id:"p2",name:"李四",gender:"F",skill:2},{id:"p3",name:"王五",gender:"M",skill:4}]})}
-                style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:ROSE_L,color:ROSE,fontWeight:700}}>选择要离开的人</button>
+              <button onClick={()=>setRemoveModal({ri, players})} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:ROSE_L,color:ROSE,fontWeight:700}}>选择要离开的人 Select players</button>
             </div>
           </DashedSection>
           <DashedSection label="➕ 继续加场">
@@ -1306,11 +1305,42 @@ function BasicPanel(){
       </button>;})}
     </div>
     <button onClick={gen} disabled={!ok} style={{width:"100%",padding:"14px 0",borderRadius:16,fontWeight:900,fontSize:14,background:ok?EMERALD:"rgba(0,0,0,.05)",border:"none",cursor:ok?"pointer":"not-allowed",color:ok?"#fff":"rgba(0,0,0,.25)"}}>🏸 生成赛程 Generate Schedule</button>
-    {rounds&&<ResultView rounds={rounds} mode={mode} checked={checked} setChecked={setChecked} onRegen={gen} onAddPlayers={addPlayers} onRemovePlayers={removePlayer} onMoreRounds={moreRounds} isOwner={true}/>}
+    {rounds&&<ResultView rounds={rounds} mode={mode} checked={checked} setChecked={setChecked} onRegen={gen} onAddPlayers={addPlayers} onRemovePlayers={removePlayer} onMoreRounds={moreRounds} isOwner={true} players={pool}/>}
   </div>;
 }
 
 /* ── AdvancedPanel ── */
+
+/* ── TransferOwnerModal ── */
+function TransferOwnerModal({members, myId, onTransfer, onClose}){
+  const others = members.filter(m=>m.id!==myId);
+  return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
+    onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{...S.card,padding:20,width:"100%",maxWidth:360,display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{fontWeight:900,fontSize:16}}>👑 转让房主 Transfer Host</div>
+        <button onClick={onClose} style={{width:28,height:28,borderRadius:"50%",background:"rgba(0,0,0,.06)",border:"none",cursor:"pointer"}}>✕</button>
+      </div>
+      {others.length===0
+        ?<div style={{textAlign:"center",padding:"16px 0",opacity:.4,fontSize:13}}>暂无其他房间成员<br/>No other members yet</div>
+        :others.map(m=>(
+          <button key={m.id} onClick={()=>onTransfer(m.id)}
+            style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:12,
+              border:`1px solid ${BORDER}`,background:BG3,cursor:"pointer",textAlign:"left",width:"100%"}}>
+            <span style={{width:32,height:32,borderRadius:"50%",background:EMERALD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>👤</span>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700}}>{m.name||"成员 Member"}</div>
+              <div style={{fontSize:10,opacity:.4,fontFamily:"monospace"}}>ID: {m.id.slice(0,8)}</div>
+            </div>
+            <span style={{color:EMERALD,fontSize:12}}>转让 →</span>
+          </button>
+        ))
+      }
+    </div>
+  </div>;
+}
+
+
 function AdvancedPanel(){
   const lang = useLang();
   const [screen,setScreen]=useState("join"),[input,setInput]=useState(""),[code,setCode]=useState("");
@@ -1319,6 +1349,8 @@ function AdvancedPanel(){
   const [form,setForm]=useState({name:"",gender:"M",skill:3});
   const [rounds,setRounds]=useState(null),[checked,setChecked]=useState({});
   const [sync,setSync]=useState("");
+  const [roomMembers,setRoomMembers]=useState([]);
+  const [showTransfer,setShowTransfer]=useState(false);
   const [targetGames,setTargetGames]=useState(5);
   const [matchMode,setMatchMode]=useState("random");
   const [gameMode,setGameMode]=useState("mixed");
@@ -1346,7 +1378,7 @@ function AdvancedPanel(){
       await sbFetch(`/rest/v1/bmt_rooms`,{
         method:"POST",
         headers:{"Prefer":"resolution=merge-duplicates,return=representation"},
-        body:JSON.stringify({code:activeCode,players:newPlayers,schedule:newRounds?{rounds:newRounds,ts:Date.now()}:null,owner_id:ownerToSave,updated_at:new Date().toISOString()}),
+        body:JSON.stringify({code:activeCode,players:newPlayers,schedule:newRounds?{rounds:newRounds,ts:Date.now()}:null,owner_id:ownerToSave,updated_at:new Date().toISOString(),members:JSON.stringify([...(roomMembers.some(m=>m.id===myId)?roomMembers:[...roomMembers,{id:myId,name:"成员"}])])}),
       });
       setSync("✓ 已同步");
     }catch{setSync("⚠ 同步失败");}
@@ -1357,12 +1389,15 @@ function AdvancedPanel(){
     if(!code)return;
     const poll=async()=>{
       try{
-        const data=await sbFetch(`/rest/v1/bmt_rooms?code=eq.${encodeURIComponent(code)}&select=players,schedule,owner_id`);
+        const data=await sbFetch(`/rest/v1/bmt_rooms?code=eq.${encodeURIComponent(code)}&select=players,schedule,owner_id,members`);
         if(!data||!data[0])return;
         const row=data[0];
         if(row.players) setPlayers(row.players);
         if(row.schedule?.rounds) setRounds(row.schedule.rounds);
         if(row.owner_id){ownerIdRef.current=row.owner_id;setIsOwner(row.owner_id===myId);}
+        if(row.members){try{const m=JSON.parse(row.members);setRoomMembers(m);}catch{}}
+        // Register self if not in members
+        if(row.members){try{const m=JSON.parse(row.members);if(!m.some(x=>x.id===myId)){const nm=[...m,{id:myId,name:"成员"}];setRoomMembers(nm);}}catch{}}
       }catch{}
     };
     poll();
@@ -1437,6 +1472,7 @@ function AdvancedPanel(){
       }
     }catch{ownerIdRef.current=asOwner?myId:null;setIsOwner(asOwner);}
     setCode(code2);
+    setRoomMembers(prev=>{if(prev.some(m=>m.id===myId))return prev;return[...prev,{id:myId,name:"成员"}];});
     try{localStorage.setItem("bmt_room_code",code2);localStorage.setItem("bmt_room_owner",asOwner?"1":"0");}catch{}
     setScreen("room");
   }
@@ -1470,6 +1506,7 @@ function AdvancedPanel(){
   );
 
   return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    {showTransfer&&<TransferOwnerModal members={roomMembers} myId={myId} onTransfer={(id)=>{transferOwner(id);setShowTransfer(false);}} onClose={()=>setShowTransfer(false)}/>}
     {showQuiz&&<SkillQuiz onDone={lv=>{setForm(f=>({...f,skill:Math.round(lv*2)/2}));setShowQuiz(false);}} onClose={()=>setShowQuiz(false)}/>}
 
     {/* Room banner */}
@@ -1484,7 +1521,7 @@ function AdvancedPanel(){
       <div style={{display:"flex",alignItems:"center",gap:6}}>
         {sync&&<span style={{fontSize:10,color:EMERALD}}>{sync}</span>}
         <button onClick={()=>{try{navigator.clipboard.writeText(code);}catch{}}} style={{fontSize:11,fontWeight:700,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:"rgba(22,163,74,.15)",color:"#14532d"}}>复制 Copy</button>
-        {isOwner&&<button onClick={()=>{const id=window.prompt("新房主ID (New owner ID):");if(id)transferOwner(id.trim());}} style={{fontSize:11,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:AMBER_L,color:AMBER,fontWeight:700}}>👑 转让</button>}
+        {isOwner&&<button onClick={()=>setShowTransfer(true)} style={{fontSize:11,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:AMBER_L,color:AMBER,fontWeight:700}}>👑 转让</button>}
         <button onClick={()=>{setScreen("join");setCode("");try{localStorage.removeItem("bmt_room_code");}catch{}}} style={{fontSize:11,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)"}}>退出 Leave</button>
       </div>
     </div>
@@ -1622,7 +1659,7 @@ function AdvancedPanel(){
       {rounds&&<ResultView rounds={rounds} mode={gameMode} matchMode={matchMode} checked={checked} setChecked={setChecked}
         onRegen={isOwner?gen:null} onAddPlayers={isOwner?addPlayers:null}
         onRemovePlayers={isOwner?removePlayer:null} onMoreRounds={isOwner?moreRounds:null}
-        isOwner={isOwner}/>}
+        isOwner={isOwner} players={players}/>}
       {!rounds&&<div style={{textAlign:"center",padding:"24px 0",opacity:.4,fontSize:13}}>
         {players.length>=2?(isOwner?"点上方生成赛程 · Tap above to generate":"等待房主生成赛程 · Waiting for host"):"请先添加至少2名球员 · Add at least 2 players"}
       </div>}
