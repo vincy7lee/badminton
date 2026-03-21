@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Build: 2026-03-21 22:21:07 -->
+<!-- Build: 2026-03-21 22:44:29 -->
 <html lang="zh">
 <head>
   <meta charset="UTF-8"/>
@@ -891,7 +891,7 @@ function ShareModal({ result, matchMode, onClose }) {
       .join("");
 
     const html = `<!DOCTYPE html>
-<!-- Build: 2026-03-21 22:21:07 -->
+<!-- Build: 2026-03-21 22:44:29 -->
 <html lang="zh">
 <head>
 <meta charset="UTF-8"/>
@@ -1212,17 +1212,28 @@ function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, o
   return <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:8}}>
 
     {/* Stats */}
-    <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
-      <div style={S.lbl}>赛程统计 Stats</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-        {[{l:"总轮次 Rounds",v:rounds.length,c:SKY},{l:"总场次 Matches",v:total,c:VIOLET},{l:"已完成 Done",v:`${done}/${total}`,c:EMERALD}].map(s=>(
-          <div key={s.l} style={{...S.card2,padding:10,textAlign:"center"}}>
-            <div style={{fontSize:22,fontWeight:900,color:s.c}}>{s.v}</div>
-            <div style={{fontSize:9,marginTop:2,opacity:.6}}>{s.l}</div>
-          </div>
-        ))}
-      </div>
-    </div>
+    {(()=>{
+      const allP=[...new Map(rounds.flatMap(r=>r.flatMap(m=>[...m.teamA,...m.teamB])).map(p=>[p.id,p])).values()];
+      const stats=computeStats(rounds,allP,mode);
+      const statItems=[
+        {l:"总轮次 Rounds",v:rounds.length,c:SKY},
+        {l:"总场次 Matches",v:total,c:VIOLET},
+        {l:"已完成 Done",v:`${done}/${total}`,c:EMERALD},
+        {l:"对手覆盖 Opponent",v:`${stats.opponentCoverage}%`,c:"#0891b2"},
+        ...(stats.teammateCoverage!==null?[{l:"队友覆盖 Teammate",v:`${stats.teammateCoverage}%`,c:"#7c3aed"}]:[]),
+      ];
+      return <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
+        <div style={S.lbl}>赛程统计 Stats</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+          {statItems.map(s=>(
+            <div key={s.l} style={{...S.card2,padding:10,textAlign:"center"}}>
+              <div style={{fontSize:s.l.includes("覆盖")?18:22,fontWeight:900,color:s.c}}>{s.v}</div>
+              <div style={{fontSize:9,marginTop:2,opacity:.6}}>{s.l}</div>
+            </div>
+          ))}
+        </div>
+      </div>;
+    })()}
 
     {/* Header */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"0 4px"}}>
@@ -1411,7 +1422,9 @@ function BasicPanel(){
   function moreRounds(ri,n){
     const kept=(rounds||[]).slice(0,ri+1);
     const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
-    setRounds([...kept,...schedWithHistory(pool,mode,n,{},{},gc)]);
+    // Generate extra rounds using existing history, take exactly n
+    const extra=schedWithHistory(pool,mode,tgt+n,{},{},gc);
+    setRounds([...kept,...extra.slice(0,n)]);
   }
   const ok=mode==="mixed"?(numM>=1&&numF>=1):(needM?numM>=2:true)&&(needF?numF>=2:true);
   return <>
@@ -1610,7 +1623,8 @@ function AdvancedPanel(){
     const kept=(rounds||[]).slice(0,ri+1);
     const gc=buildGcFromRounds(kept);
     const {opposed,teamed}=buildOpposedFromRounds(kept);
-    const nr=[...kept,...schedWithHistory(players,gameMode,n,opposed,teamed,gc)];
+    const extra=schedWithHistory(players,gameMode,targetGames+n,opposed,teamed,gc);
+    const nr=[...kept,...extra.slice(0,n)];
     setRounds(nr);saveRoomState(players,nr);
   }
   function transferOwner(newOwnerId){
