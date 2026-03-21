@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Build: 2026-03-21 21:43:09 -->
+<!-- Build: 2026-03-21 21:50:10 -->
 <html lang="zh">
 <head>
   <meta charset="UTF-8"/>
@@ -891,7 +891,7 @@ function ShareModal({ result, matchMode, onClose }) {
       .join("");
 
     const html = `<!DOCTYPE html>
-<!-- Build: 2026-03-21 21:43:09 -->
+<!-- Build: 2026-03-21 21:50:10 -->
 <html lang="zh">
 <head>
 <meta charset="UTF-8"/>
@@ -1170,7 +1170,7 @@ function NumPickerModal({title, onConfirm, onClose}){
       {/* Confirm */}
       <div style={{padding:14,display:"flex",gap:10,borderTop:`1px solid ${BORDER}`}}>
         <button onClick={onClose} style={{flex:1,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)",fontWeight:700}}>取消 Cancel</button>
-        <button onClick={e=>{e.stopPropagation();confirm();}} disabled={players.length===0}
+        <button onClick={e=>{e.stopPropagation();console.log("AddPlayers confirm clicked, players=",players);alert("AddPlayers: "+players.length+" players");confirm();}} disabled={players.length===0}
           style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",fontWeight:900,
             background:players.length>0?EMERALD:"rgba(0,0,0,.05)",
             color:players.length>0?"#fff":"rgba(0,0,0,.25)",
@@ -1197,7 +1197,7 @@ function ExtraRoundsModal({onConfirm, onClose}){
       </div>
       <div style={{display:"flex",gap:10}}>
         <button onClick={onClose} style={{flex:1,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)",fontWeight:700}}>取消</button>
-        <button onClick={e=>{e.stopPropagation();onConfirm(n);}} style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:900}}>生成 {n} 轮</button>
+        <button onClick={e=>{e.stopPropagation();console.log("MoreRounds confirm clicked, n=",n);alert("MoreRounds: "+n);onConfirm(n);}} style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:900}}>生成 {n} 轮</button>
       </div>
     </div>
   </div>;
