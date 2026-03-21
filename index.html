@@ -976,6 +976,264 @@ function ExtraRoundsModal({onConfirm, onClose}){
 }
 
 /* ── ResultView ── */
+
+function TargetGamesInput({ value, onChange }) {
+  const lang = useLang();
+  return (
+    <div style={{ ...S.card, padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700}}>{lang==="en"?"Target Games/Person":lang==="zh"?"人均场次目标":"人均场次目标"}</div>
+          <div style={{ fontSize: 10}}>
+            Target Per Person · <span className="c-amber">hard cap {value + 5}</span>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => onChange(Math.max(1, value - 1))}
+            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>−</button>
+          <span style={{ fontSize: 28, fontWeight: 900, width: 40, textAlign: "center" }}>{value}</span>
+          <button onClick={() => onChange(Math.min(30, value + 1))}
+            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>+</button>
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <input type="range" min={1} max={20} value={value}
+          onChange={e => onChange(+e.target.value)}
+          style={{ width: "100%", accentColor: AMBER, cursor: "pointer" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9}}>
+          <span>1 game</span><span>10</span><span>20 games</span>
+        </div>
+      </div>
+      <div style={{ fontSize: 10, background: "rgba(0,0,0,0.03)", borderRadius: 8, padding: "6px 12px", lineHeight: 1.6 }}>
+        <div>优先级：① 硬上限(target+5) → ② 总场次均衡 → ③ 配对新鲜度 → ④ 个人最高场次</div>
+        <div style={{ opacity: 0.6 }}>Priority: ① Hard cap · ② Total load · ③ Novelty · ④ Individual max</div>
+      </div>
+    </div>
+  );
+}
+
+function ShareModal({ result, matchMode, onClose }) {
+  const lang = useLang();
+  const [shareTab, setShareTab] = useState("text");
+  const [copied, setCopied] = useState(false);
+  const [pdfStatus, setPdfStatus] = useState("idle");
+
+  const { rounds, stats } = result;
+
+  function buildText() {
+    const lines = [];
+    lines.push("🏸 羽毛球赛程安排");
+    lines.push(`${new Date().toLocaleDateString("zh-CN")} · ${stats.rounds}轮 · ${stats.totalMatches}场`);
+    lines.push("");
+    rounds.forEach((round, ri) => {
+      lines.push(`【第${ri+1}轮】`);
+      round.forEach((m, mi) => {
+        const ta = m.teamA.map(p => p.name + (p.borrowed ? "★" : "")).join("/");
+        const tb = m.teamB.map(p => p.name + (p.borrowed ? "★" : "")).join("/");
+        lines.push(`  ${mi+1}. ${ta} vs ${tb}`);
+      });
+      lines.push("");
+    });
+    lines.push(`对手覆盖率 ${stats.opponentCoverage}%${stats.teammateCoverage !== null ? " · 队友覆盖率 " + stats.teammateCoverage + "%" : ""}`);
+    return lines.join("\n");
+  }
+
+  function copyText() {
+    const text = buildText();
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2500);
+    }).catch(() => {
+      const ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta);
+      ta.select(); document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCopied(true); setTimeout(() => setCopied(false), 2500);
+    });
+  }
+
+  function openPDF() {
+    setPdfStatus("loading");
+    const { rounds, stats } = result;
+    const hasBorrow = rounds.some(r => r.some(m => [...m.teamA, ...m.teamB].some(p => p.borrowed)));
+
+    function playerLabel(p) {
+      return `${p.name}${p.borrowed ? "★" : ""}${p.skill !== undefined ? ` (L${p.skill})` : ""}`;
+    }
+    function teamLabel(team) { return team.map(playerLabel).join(" / "); }
+
+    const roundRows = rounds.map((round, ri) => {
+      const matchRows = round.map((m, mi) => {
+        const diff = Math.abs((m.teamA.reduce((s,p)=>s+(p.skill??5),0)/m.teamA.length) -
+                              (m.teamB.reduce((s,p)=>s+(p.skill??5),0)/m.teamB.length)).toFixed(1);
+        return `<tr class="match-row">
+          <td class="match-num">${mi + 1}</td>
+          <td class="team-a">${teamLabel(m.teamA)}</td>
+          <td class="vs">VS</td>
+          <td class="team-b">${teamLabel(m.teamB)}</td>
+          ${matchMode === "balanced" ? `<td class="diff">Δ${diff}</td>` : "<td></td>"}
+        </tr>`;
+      }).join("");
+      return `<tbody>
+        <tr class="round-header">
+          <td colspan="5">第 ${ri+1} 轮 Round ${ri+1} · ${round.length} 场 matches</td>
+        </tr>
+        ${matchRows}
+      </tbody>`;
+    }).join("");
+
+    const perPlayerRows = (stats.perPlayer || [])
+      .sort((a,b) => b.games - a.games)
+      .map(p => `<tr><td>${p.name}</td><td class="games-val">${p.games}</td></tr>`)
+      .join("");
+
+    const html = `<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8"/>
+<title>羽毛球赛程 Badminton Schedule</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
+         background: #fff; color: #1a1a1a; padding: 24px; font-size: 13px; }
+  h1 { font-size: 22px; font-weight: 900; margin-bottom: 4px; }
+  .subtitle { color: #666; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 20px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 20px; }
+  .stat-card { border: 1px solid #e5e5e5; border-radius: 10px; padding: 10px; text-align: center; }
+  .stat-val { font-size: 24px; font-weight: 900; color: #16a34a; }
+  .stat-label { font-size: 10px; color: #888; margin-top: 2px; }
+  h2 { font-size: 14px; font-weight: 700; margin: 16px 0 8px; border-bottom: 2px solid #16a34a; padding-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .round-header td { background: #f0fdf4; font-weight: 700; color: #15803d;
+                     padding: 7px 10px; border-top: 1px solid #bbf7d0; border-bottom: 1px solid #bbf7d0; font-size: 11px; }
+  .match-row td { padding: 6px 10px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+  .match-row:hover td { background: #fafafa; }
+  .match-num { color: #aaa; width: 24px; }
+  .team-a, .team-b { font-weight: 600; }
+  .team-b { text-align: right; }
+  .vs { text-align: center; font-weight: 900; color: #16a34a; font-size: 11px; width: 28px; }
+  .diff { text-align: right; color: #999; font-size: 10px; width: 32px; }
+  .dist-table { width: auto; max-width: 320px; }
+  .dist-table td { padding: 4px 10px; border-bottom: 1px solid #f3f4f6; }
+  .games-val { font-weight: 700; color: #16a34a; text-align: right; }
+  .note { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px;
+           padding: 8px 12px; font-size: 11px; color: #92400e; margin-top: 12px; }
+  .footer { margin-top: 24px; text-align: center; font-size: 10px; color: #ccc; }
+  @media print { body { padding: 16px; } }
+</style>
+</head>
+<body>
+<div style="text-align:center;margin-bottom:24px;">
+  <div style="font-size:36px;margin-bottom:6px;">🏸</div>
+  <h1>羽毛球赛程安排</h1>
+  <p class="subtitle">Badminton Match Schedule · ${new Date().toLocaleDateString("zh-CN")}</p>
+</div>
+<div class="stats-grid">
+  <div class="stat-card"><div class="stat-val">${stats.rounds}</div><div class="stat-label">轮次 Rounds</div></div>
+  <div class="stat-card"><div class="stat-val">${stats.totalMatches}</div><div class="stat-label">总场次 Matches</div></div>
+  <div class="stat-card"><div class="stat-val">${stats.opponentCoverage}%</div><div class="stat-label">对手覆盖 Opp.</div></div>
+  ${stats.teammateCoverage !== null ? `<div class="stat-card"><div class="stat-val">${stats.teammateCoverage}%</div><div class="stat-label">队友覆盖 Partner</div></div>` : ""}
+</div>
+${hasBorrow ? `<div class="note">★ 性别人数不均，已借调球员参与混双 · Uneven gender count — players subbed in (★)</div>` : ""}
+<h2>完整赛程 Full Schedule</h2>
+<table>${roundRows}</table>
+${perPlayerRows ? `<h2>场次分布 Games Distribution · avg ${stats.avgGames} · min ${stats.minGames} / max ${stats.maxGames}</h2>
+<table class="dist-table"><tbody>${perPlayerRows}</tbody></table>` : ""}
+<div class="footer">Generated by 羽毛球赛程安排 Badminton Match Scheduler</div>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank", "width=800,height=900");
+    if (!win) { setPdfStatus("idle"); return; }
+    win.document.write(html);
+    win.document.close();
+    win.onload = () => {
+      setTimeout(() => {
+        win.focus();
+        win.print();
+        setPdfStatus("done");
+        setTimeout(() => setPdfStatus("idle"), 2000);
+      }, 300);
+    };
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 16, background: "rgba(0,0,0,0.80)" }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ width: "100%", maxWidth: 400, background: BG2, border: "1px solid rgba(0,0,0,0.08)", borderRadius: 24, padding: 20, display: "flex", flexDirection: "column", gap: 16, boxShadow: "0 24px 60px rgba(0,0,0,0.8)" }}>
+        <style>{`@keyframes slideUp { from { transform:translateY(40px); opacity:0 } to { transform:translateY(0); opacity:1 } }`}</style>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontWeight: 900, fontSize: 18 }}>分享赛程</div>
+            <div style={{ fontSize: 11}}>Share Schedule</div>
+          </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(0,0,0,0.07)", border: "none", cursor: "pointer", fontSize: 14 }}>✕</button>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 4, background: "rgba(0,0,0,0.04)", padding: 4, borderRadius: 14, border: "1px solid rgba(0,0,0,0.05)" }}>
+          {[
+            { id: "text", label: lang==="en"?"💬 Copy Text":lang==="zh"?"💬 复制文字":"💬 复制文字 Copy" },
+            { id: "pdf",  label: lang==="en"?"📄 Print/PDF":lang==="zh"?"📄 打印/PDF":"📄 打印 Print/PDF" },
+          ].map(t => (
+            <button key={t.id} onClick={() => setShareTab(t.id)} style={{
+              flex: 1, padding: "8px 0", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer",
+              background: shareTab === t.id ? EMERALD : "transparent",
+            }} className={shareTab === t.id ? "c-white" : "c-muted"}>{t.label}</button>
+          ))}
+        </div>
+
+        {shareTab === "text" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ fontSize: 11, lineHeight: 1.7, opacity: 0.7 }}>
+              复制后可直接粘贴到微信/钉钉群发给队友
+            </div>
+            <pre style={{
+              background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.07)",
+              borderRadius: 12, padding: "12px 14px", fontSize: 12, lineHeight: 1.8,
+              whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 280, overflowY: "auto",
+              fontFamily: "'PingFang SC','Microsoft YaHei',sans-serif", userSelect: "all",
+            }}>{buildText()}</pre>
+            <button onClick={copyText} style={{
+              width: "100%", padding: "13px 0", borderRadius: 12, fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer",
+              background: copied ? "#14532d" : EMERALD,
+            }} className="c-white">{copied ? (lang==="en"?"✓ Copied! Paste to share":"✓ 已复制！直接粘贴发给队友") : (lang==="en"?"📋 Copy Schedule":"📋 一键复制赛程")}</button>
+          </div>
+        )}
+
+        {shareTab === "pdf" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ fontSize: 11, lineHeight: 1.7 }}>
+              生成完整赛程的打印页面，可直接打印或保存为 PDF。<br/>
+              <span style={{ opacity: 0.7 }}>Opens a print-ready page — print directly or save as PDF.</span>
+            </div>
+            <div style={{ background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+              {[
+                `${result.stats.rounds} 轮 · ${result.stats.totalMatches} 场`,
+                `对手覆盖 ${result.stats.opponentCoverage}%${result.stats.teammateCoverage !== null ? " · 队友覆盖 " + result.stats.teammateCoverage + "%" : ""}`,
+                result.stats.perPlayer?.length ? `${result.stats.perPlayer.length} 名球员场次分布` : null,
+              ].filter(Boolean).map((line, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11}}>
+                  <span className="c-green">→</span><span>{line}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={openPDF} disabled={pdfStatus === "loading"} style={{
+              width: "100%", padding: "12px 0", borderRadius: 12, fontWeight: 900, fontSize: 14, border: "none", cursor: pdfStatus === "loading" ? "not-allowed" : "pointer",
+              background: pdfStatus === "done" ? "#14532d" : pdfStatus === "loading" ? "rgba(0,0,0,0.07)" : "#0ea5e9",
+              
+            }}>
+              {pdfStatus === "done" ? "✓ 已打开 Opened!" : pdfStatus === "loading" ? "⏳ 生成中…" : "📄 打开打印页面 Open Print Page"}
+            </button>
+            <div style={{ textAlign: "center", fontSize: 10}}>在弹出页面选择 "另存为 PDF" Save as PDF 即可</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, onRemovePlayers, onMoreRounds, isOwner}){
   const lang = useLang();
   const [open,setOpen]=useState(0);
@@ -1504,268 +1762,9 @@ function App(){
 }
 
 
-function TargetGamesInput({ value, onChange }) {
-  const lang = useLang();
-  return (
-    <div style={{ ...S.card, padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700}}>{lang==="en"?"Target Games/Person":lang==="zh"?"人均场次目标":"人均场次目标"}</div>
-          <div style={{ fontSize: 10}}>
-            Target Per Person · <span className="c-amber">hard cap {value + 5}</span>
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={() => onChange(Math.max(1, value - 1))}
-            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>−</button>
-          <span style={{ fontSize: 28, fontWeight: 900, width: 40, textAlign: "center" }}>{value}</span>
-          <button onClick={() => onChange(Math.min(30, value + 1))}
-            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>+</button>
-        </div>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <input type="range" min={1} max={20} value={value}
-          onChange={e => onChange(+e.target.value)}
-          style={{ width: "100%", accentColor: AMBER, cursor: "pointer" }} />
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9}}>
-          <span>1 game</span><span>10</span><span>20 games</span>
-        </div>
-      </div>
-      <div style={{ fontSize: 10, background: "rgba(0,0,0,0.03)", borderRadius: 8, padding: "6px 12px", lineHeight: 1.6 }}>
-        <div>优先级：① 硬上限(target+5) → ② 总场次均衡 → ③ 配对新鲜度 → ④ 个人最高场次</div>
-        <div style={{ opacity: 0.6 }}>Priority: ① Hard cap · ② Total load · ③ Novelty · ④ Individual max</div>
-      </div>
-    </div>
-  );
-}
-
-
 /* ═══════════════════════════════════════════════════════════
    BASIC PANEL
 ═══════════════════════════════════════════════════════════ */
-
-function ShareModal({ result, matchMode, onClose }) {
-  const lang = useLang();
-  const [shareTab, setShareTab] = useState("text");
-  const [copied, setCopied] = useState(false);
-  const [pdfStatus, setPdfStatus] = useState("idle");
-
-  const { rounds, stats } = result;
-
-  function buildText() {
-    const lines = [];
-    lines.push("🏸 羽毛球赛程安排");
-    lines.push(`${new Date().toLocaleDateString("zh-CN")} · ${stats.rounds}轮 · ${stats.totalMatches}场`);
-    lines.push("");
-    rounds.forEach((round, ri) => {
-      lines.push(`【第${ri+1}轮】`);
-      round.forEach((m, mi) => {
-        const ta = m.teamA.map(p => p.name + (p.borrowed ? "★" : "")).join("/");
-        const tb = m.teamB.map(p => p.name + (p.borrowed ? "★" : "")).join("/");
-        lines.push(`  ${mi+1}. ${ta} vs ${tb}`);
-      });
-      lines.push("");
-    });
-    lines.push(`对手覆盖率 ${stats.opponentCoverage}%${stats.teammateCoverage !== null ? " · 队友覆盖率 " + stats.teammateCoverage + "%" : ""}`);
-    return lines.join("\n");
-  }
-
-  function copyText() {
-    const text = buildText();
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true); setTimeout(() => setCopied(false), 2500);
-    }).catch(() => {
-      const ta = document.createElement("textarea");
-      ta.value = text; document.body.appendChild(ta);
-      ta.select(); document.execCommand("copy");
-      document.body.removeChild(ta);
-      setCopied(true); setTimeout(() => setCopied(false), 2500);
-    });
-  }
-
-  function openPDF() {
-    setPdfStatus("loading");
-    const { rounds, stats } = result;
-    const hasBorrow = rounds.some(r => r.some(m => [...m.teamA, ...m.teamB].some(p => p.borrowed)));
-
-    function playerLabel(p) {
-      return `${p.name}${p.borrowed ? "★" : ""}${p.skill !== undefined ? ` (L${p.skill})` : ""}`;
-    }
-    function teamLabel(team) { return team.map(playerLabel).join(" / "); }
-
-    const roundRows = rounds.map((round, ri) => {
-      const matchRows = round.map((m, mi) => {
-        const diff = Math.abs((m.teamA.reduce((s,p)=>s+(p.skill??5),0)/m.teamA.length) -
-                              (m.teamB.reduce((s,p)=>s+(p.skill??5),0)/m.teamB.length)).toFixed(1);
-        return `<tr class="match-row">
-          <td class="match-num">${mi + 1}</td>
-          <td class="team-a">${teamLabel(m.teamA)}</td>
-          <td class="vs">VS</td>
-          <td class="team-b">${teamLabel(m.teamB)}</td>
-          ${matchMode === "balanced" ? `<td class="diff">Δ${diff}</td>` : "<td></td>"}
-        </tr>`;
-      }).join("");
-      return `<tbody>
-        <tr class="round-header">
-          <td colspan="5">第 ${ri+1} 轮 Round ${ri+1} · ${round.length} 场 matches</td>
-        </tr>
-        ${matchRows}
-      </tbody>`;
-    }).join("");
-
-    const perPlayerRows = (stats.perPlayer || [])
-      .sort((a,b) => b.games - a.games)
-      .map(p => `<tr><td>${p.name}</td><td class="games-val">${p.games}</td></tr>`)
-      .join("");
-
-    const html = `<!DOCTYPE html>
-<html lang="zh">
-<head>
-<meta charset="UTF-8"/>
-<title>羽毛球赛程 Badminton Schedule</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: "PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
-         background: #fff; color: #1a1a1a; padding: 24px; font-size: 13px; }
-  h1 { font-size: 22px; font-weight: 900; margin-bottom: 4px; }
-  .subtitle { color: #666; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 20px; }
-  .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 20px; }
-  .stat-card { border: 1px solid #e5e5e5; border-radius: 10px; padding: 10px; text-align: center; }
-  .stat-val { font-size: 24px; font-weight: 900; color: #16a34a; }
-  .stat-label { font-size: 10px; color: #888; margin-top: 2px; }
-  h2 { font-size: 14px; font-weight: 700; margin: 16px 0 8px; border-bottom: 2px solid #16a34a; padding-bottom: 4px; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .round-header td { background: #f0fdf4; font-weight: 700; color: #15803d;
-                     padding: 7px 10px; border-top: 1px solid #bbf7d0; border-bottom: 1px solid #bbf7d0; font-size: 11px; }
-  .match-row td { padding: 6px 10px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
-  .match-row:hover td { background: #fafafa; }
-  .match-num { color: #aaa; width: 24px; }
-  .team-a, .team-b { font-weight: 600; }
-  .team-b { text-align: right; }
-  .vs { text-align: center; font-weight: 900; color: #16a34a; font-size: 11px; width: 28px; }
-  .diff { text-align: right; color: #999; font-size: 10px; width: 32px; }
-  .dist-table { width: auto; max-width: 320px; }
-  .dist-table td { padding: 4px 10px; border-bottom: 1px solid #f3f4f6; }
-  .games-val { font-weight: 700; color: #16a34a; text-align: right; }
-  .note { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px;
-           padding: 8px 12px; font-size: 11px; color: #92400e; margin-top: 12px; }
-  .footer { margin-top: 24px; text-align: center; font-size: 10px; color: #ccc; }
-  @media print { body { padding: 16px; } }
-</style>
-</head>
-<body>
-<div style="text-align:center;margin-bottom:24px;">
-  <div style="font-size:36px;margin-bottom:6px;">🏸</div>
-  <h1>羽毛球赛程安排</h1>
-  <p class="subtitle">Badminton Match Schedule · ${new Date().toLocaleDateString("zh-CN")}</p>
-</div>
-<div class="stats-grid">
-  <div class="stat-card"><div class="stat-val">${stats.rounds}</div><div class="stat-label">轮次 Rounds</div></div>
-  <div class="stat-card"><div class="stat-val">${stats.totalMatches}</div><div class="stat-label">总场次 Matches</div></div>
-  <div class="stat-card"><div class="stat-val">${stats.opponentCoverage}%</div><div class="stat-label">对手覆盖 Opp.</div></div>
-  ${stats.teammateCoverage !== null ? `<div class="stat-card"><div class="stat-val">${stats.teammateCoverage}%</div><div class="stat-label">队友覆盖 Partner</div></div>` : ""}
-</div>
-${hasBorrow ? `<div class="note">★ 性别人数不均，已借调球员参与混双 · Uneven gender count — players subbed in (★)</div>` : ""}
-<h2>完整赛程 Full Schedule</h2>
-<table>${roundRows}</table>
-${perPlayerRows ? `<h2>场次分布 Games Distribution · avg ${stats.avgGames} · min ${stats.minGames} / max ${stats.maxGames}</h2>
-<table class="dist-table"><tbody>${perPlayerRows}</tbody></table>` : ""}
-<div class="footer">Generated by 羽毛球赛程安排 Badminton Match Scheduler</div>
-</body>
-</html>`;
-
-    const win = window.open("", "_blank", "width=800,height=900");
-    if (!win) { setPdfStatus("idle"); return; }
-    win.document.write(html);
-    win.document.close();
-    win.onload = () => {
-      setTimeout(() => {
-        win.focus();
-        win.print();
-        setPdfStatus("done");
-        setTimeout(() => setPdfStatus("idle"), 2000);
-      }, 300);
-    };
-  }
-
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 16, background: "rgba(0,0,0,0.80)" }}
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ width: "100%", maxWidth: 400, background: BG2, border: "1px solid rgba(0,0,0,0.08)", borderRadius: 24, padding: 20, display: "flex", flexDirection: "column", gap: 16, boxShadow: "0 24px 60px rgba(0,0,0,0.8)" }}>
-        <style>{`@keyframes slideUp { from { transform:translateY(40px); opacity:0 } to { transform:translateY(0); opacity:1 } }`}</style>
-
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontWeight: 900, fontSize: 18 }}>分享赛程</div>
-            <div style={{ fontSize: 11}}>Share Schedule</div>
-          </div>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(0,0,0,0.07)", border: "none", cursor: "pointer", fontSize: 14 }}>✕</button>
-        </div>
-
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: 4, background: "rgba(0,0,0,0.04)", padding: 4, borderRadius: 14, border: "1px solid rgba(0,0,0,0.05)" }}>
-          {[
-            { id: "text", label: lang==="en"?"💬 Copy Text":lang==="zh"?"💬 复制文字":"💬 复制文字 Copy" },
-            { id: "pdf",  label: lang==="en"?"📄 Print/PDF":lang==="zh"?"📄 打印/PDF":"📄 打印 Print/PDF" },
-          ].map(t => (
-            <button key={t.id} onClick={() => setShareTab(t.id)} style={{
-              flex: 1, padding: "8px 0", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer",
-              background: shareTab === t.id ? EMERALD : "transparent",
-            }} className={shareTab === t.id ? "c-white" : "c-muted"}>{t.label}</button>
-          ))}
-        </div>
-
-        {shareTab === "text" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ fontSize: 11, lineHeight: 1.7, opacity: 0.7 }}>
-              复制后可直接粘贴到微信/钉钉群发给队友
-            </div>
-            <pre style={{
-              background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.07)",
-              borderRadius: 12, padding: "12px 14px", fontSize: 12, lineHeight: 1.8,
-              whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 280, overflowY: "auto",
-              fontFamily: "'PingFang SC','Microsoft YaHei',sans-serif", userSelect: "all",
-            }}>{buildText()}</pre>
-            <button onClick={copyText} style={{
-              width: "100%", padding: "13px 0", borderRadius: 12, fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer",
-              background: copied ? "#14532d" : EMERALD,
-            }} className="c-white">{copied ? (lang==="en"?"✓ Copied! Paste to share":"✓ 已复制！直接粘贴发给队友") : (lang==="en"?"📋 Copy Schedule":"📋 一键复制赛程")}</button>
-          </div>
-        )}
-
-        {shareTab === "pdf" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ fontSize: 11, lineHeight: 1.7 }}>
-              生成完整赛程的打印页面，可直接打印或保存为 PDF。<br/>
-              <span style={{ opacity: 0.7 }}>Opens a print-ready page — print directly or save as PDF.</span>
-            </div>
-            <div style={{ background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
-              {[
-                `${result.stats.rounds} 轮 · ${result.stats.totalMatches} 场`,
-                `对手覆盖 ${result.stats.opponentCoverage}%${result.stats.teammateCoverage !== null ? " · 队友覆盖 " + result.stats.teammateCoverage + "%" : ""}`,
-                result.stats.perPlayer?.length ? `${result.stats.perPlayer.length} 名球员场次分布` : null,
-              ].filter(Boolean).map((line, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11}}>
-                  <span className="c-green">→</span><span>{line}</span>
-                </div>
-              ))}
-            </div>
-            <button onClick={openPDF} disabled={pdfStatus === "loading"} style={{
-              width: "100%", padding: "12px 0", borderRadius: 12, fontWeight: 900, fontSize: 14, border: "none", cursor: pdfStatus === "loading" ? "not-allowed" : "pointer",
-              background: pdfStatus === "done" ? "#14532d" : pdfStatus === "loading" ? "rgba(0,0,0,0.07)" : "#0ea5e9",
-              
-            }}>
-              {pdfStatus === "done" ? "✓ 已打开 Opened!" : pdfStatus === "loading" ? "⏳ 生成中…" : "📄 打开打印页面 Open Print Page"}
-            </button>
-            <div style={{ textAlign: "center", fontSize: 10}}>在弹出页面选择 "另存为 PDF" Save as PDF 即可</div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 
 function SharedView({ data }) {
   useForceDarkBg();
