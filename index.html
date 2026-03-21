@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Build: 2026-03-21 20:43:12 -->
+<!-- Build: 2026-03-21 20:55:12 -->
 <html lang="zh">
 <head>
   <meta charset="UTF-8"/>
@@ -891,7 +891,7 @@ function ShareModal({ result, matchMode, onClose }) {
       .join("");
 
     const html = `<!DOCTYPE html>
-<!-- Build: 2026-03-21 20:43:12 -->
+<!-- Build: 2026-03-21 20:55:12 -->
 <html lang="zh">
 <head>
 <meta charset="UTF-8"/>
@@ -1146,10 +1146,11 @@ function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, o
   const total=rounds.reduce((s,r)=>s+r.length,0);
   const done=Object.values(checked).filter(Boolean).length;
 
-  return <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:8}}>
+  return <>
     {addModal!==null && <NumPickerModal title="🏸 有新人加入！" onConfirm={(nM,nF)=>{onAddPlayers(addModal,nM,nF);setAddModal(null);}} onClose={()=>setAddModal(null)}/>}
     {removeModal!==null && <PlayerPickerModal title="移除选手" players={removeModal.players} multiSelect onPick={(ids)=>{onRemovePlayers(removeModal.ri,ids);setRemoveModal(null);}} onClose={()=>setRemoveModal(null)}/>}
     {moreModal!==null && <ExtraRoundsModal onConfirm={(n)=>{onMoreRounds(moreModal,n);setMoreModal(null);}} onClose={()=>setMoreModal(null)}/>}
+    <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:8}}>
 
     {/* Stats */}
     <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
@@ -1234,9 +1235,10 @@ function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, o
             </div>
           </DashedSection>
         </div>
-      </div>;
+      </div>
     })}
-  </div>;
+  </div>
+  </>;
 }
 
 /* ── BasicPanel ── */
@@ -1312,8 +1314,12 @@ function BasicPanel(){
 /* ── AdvancedPanel ── */
 
 /* ── TransferOwnerModal ── */
-function TransferOwnerModal({members, myId, onTransfer, onClose}){
-  const others = members.filter(m=>m.id!==myId);
+function TransferOwnerModal({members, myId, players, onTransfer, onClose}){
+  // Build member list from explicit members + unique addedBy IDs from players
+  const memberMap = new Map();
+  (members||[]).forEach(m=>memberMap.set(m.id,m));
+  (players||[]).forEach(p=>{ if(p.addedBy && !memberMap.has(p.addedBy)) memberMap.set(p.addedBy,{id:p.addedBy,name:"成员"}); });
+  const others = [...memberMap.values()].filter(m=>m.id!==myId);
   return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
     onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{...S.card,padding:20,width:"100%",maxWidth:360,display:"flex",flexDirection:"column",gap:12}}>
@@ -1506,7 +1512,7 @@ function AdvancedPanel(){
   );
 
   return <div style={{display:"flex",flexDirection:"column",gap:12}}>
-    {showTransfer&&<TransferOwnerModal members={roomMembers} myId={myId} onTransfer={(id)=>{transferOwner(id);setShowTransfer(false);}} onClose={()=>setShowTransfer(false)}/>}
+    {showTransfer&&<TransferOwnerModal members={roomMembers} myId={myId} players={players} onTransfer={(id)=>{transferOwner(id);setShowTransfer(false);}} onClose={()=>setShowTransfer(false)}/>}
     {showQuiz&&<SkillQuiz onDone={lv=>{setForm(f=>({...f,skill:Math.round(lv*2)/2}));setShowQuiz(false);}} onClose={()=>setShowQuiz(false)}/>}
 
     {/* Room banner */}
