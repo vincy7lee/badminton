@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Build: 2026-03-21 21:08:06 -->
+<!-- Build: 2026-03-21 21:43:09 -->
 <html lang="zh">
 <head>
   <meta charset="UTF-8"/>
@@ -891,7 +891,7 @@ function ShareModal({ result, matchMode, onClose }) {
       .join("");
 
     const html = `<!DOCTYPE html>
-<!-- Build: 2026-03-21 21:08:06 -->
+<!-- Build: 2026-03-21 21:43:09 -->
 <html lang="zh">
 <head>
 <meta charset="UTF-8"/>
@@ -1089,28 +1089,94 @@ function PlayerPickerModal({title, players, onPick, onClose, multiSelect=false})
   </div>;
 }
 
-/* ── NumPickerModal (add new players) ── */
+/* ── AddPlayersModal — add named players with gender & skill ── */
 function NumPickerModal({title, onConfirm, onClose}){
-  const [nM,sM]=useState(1),[nF,sF]=useState(1);
-  return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
+  const [players, setPlayers] = useState([]);
+  const [form, setForm] = useState({name:"", gender:"M", skill:3});
+  function addOne(){
+    if(!form.name.trim()) return;
+    setPlayers(prev=>[...prev, {id:uid(), name:form.name.trim(), gender:form.gender, skill:form.skill}]);
+    setForm({name:"", gender:form.gender, skill:form.skill});
+  }
+  function removeOne(id){ setPlayers(prev=>prev.filter(p=>p.id!==id)); }
+  function confirm(){
+    if(players.length===0) return;
+    // Pass as named players: onConfirm receives array of player objects
+    onConfirm(players.filter(p=>p.gender==="M").length, players.filter(p=>p.gender==="F").length, players);
+  }
+  return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:16,background:"rgba(0,0,0,0.5)"}}
     onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{...S.card,padding:22,width:"100%",maxWidth:340,display:"flex",flexDirection:"column",gap:14}} onClick={e=>e.stopPropagation()}>
-      <div style={{fontWeight:900,fontSize:16}}>{title}</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        {[{l:"新男生\nNew Males",v:nM,s:sM,bg:SKY_L,c:SKY},{l:"新女生\nNew Females",v:nF,s:sF,bg:ROSE_L,c:ROSE}].map(({l,v,s,bg,c})=>(
-          <div key={l} style={{background:bg,borderRadius:14,padding:12}}>
-            <div style={{fontSize:10,marginBottom:8,whiteSpace:"pre-line",lineHeight:1.4,opacity:.7}}>{l}</div>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <button onClick={()=>s(Math.max(0,v-1))} style={{width:28,height:28,borderRadius:6,background:"rgba(0,0,0,.07)",border:"none",fontSize:16,cursor:"pointer"}}>−</button>
-              <span style={{fontSize:26,fontWeight:900,color:c}}>{v}</span>
-              <button onClick={()=>s(Math.min(10,v+1))} style={{width:28,height:28,borderRadius:6,background:"rgba(0,0,0,.07)",border:"none",fontSize:16,cursor:"pointer"}}>+</button>
-            </div>
-          </div>
-        ))}
+    <div style={{...S.card,width:"100%",maxWidth:380,maxHeight:"90vh",display:"flex",flexDirection:"column",overflow:"hidden"}} onClick={e=>e.stopPropagation()}>
+      {/* Header */}
+      <div style={{padding:"16px 16px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{fontWeight:900,fontSize:16}}>{title}</div>
+        <button onClick={onClose} style={{width:28,height:28,borderRadius:"50%",background:"rgba(0,0,0,.06)",border:"none",cursor:"pointer",fontSize:14}}>✕</button>
       </div>
-      <div style={{display:"flex",gap:10}}>
+      {/* Add form */}
+      <div style={{padding:16,display:"flex",flexDirection:"column",gap:10,borderBottom:`1px solid ${BORDER}`}}>
+        <div style={{display:"flex",gap:8}}>
+          <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}
+            onKeyDown={e=>e.key==="Enter"&&addOne()}
+            placeholder="球员名字 Player name"
+            style={{flex:1,background:BG3,border:`1px solid ${BORDER}`,borderRadius:10,padding:"9px 12px",fontSize:14,outline:"none"}}/>
+          <div style={{display:"flex",borderRadius:10,overflow:"hidden",border:`1px solid ${BORDER}`,flexShrink:0}}>
+            {["M","F"].map(g=>(
+              <button key={g} onClick={()=>setForm(f=>({...f,gender:g}))}
+                style={{padding:"8px 12px",fontSize:13,fontWeight:700,border:"none",cursor:"pointer",
+                  background:form.gender===g?(g==="M"?"#0ea5e9":"#f43f5e"):"rgba(0,0,0,.04)",
+                  color:form.gender===g?"#fff":"rgba(17,26,17,.5)"}}>
+                {g==="M"?"男 M":"女 F"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
+            <span style={{opacity:.5}}>技术水平 Skill Level</span>
+            <span style={{fontWeight:700}}>Lv{form.skill} · {skillLabel(form.skill)}</span>
+          </div>
+          <input type="range" min={2} max={12} step={1} value={form.skill*2}
+            onChange={e=>setForm(f=>({...f,skill:+e.target.value/2}))}
+            style={{width:"100%",accentColor:EMERALD}}/>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:9,opacity:.35,marginTop:2}}>
+            <span>Lv1 新手</span><span>Lv3.5</span><span>Lv6 中高</span>
+          </div>
+        </div>
+        <button onClick={addOne} disabled={!form.name.trim()}
+          style={{width:"100%",padding:"9px 0",borderRadius:10,fontWeight:700,fontSize:13,border:"none",
+            background:form.name.trim()?EMERALD:"rgba(0,0,0,.05)",
+            cursor:form.name.trim()?"pointer":"not-allowed",
+            color:form.name.trim()?"#fff":"rgba(0,0,0,.25)"}}>
+          + 加入列表 Add to list
+        </button>
+      </div>
+      {/* Player list */}
+      <div style={{flex:1,overflowY:"auto",padding:players.length?12:0}}>
+        {players.length===0
+          ?<div style={{textAlign:"center",padding:"16px 0",opacity:.4,fontSize:12}}>还没有新球员 · No players added yet</div>
+          :players.map(p=>(
+            <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 4px",borderBottom:`1px solid ${BORDER}`}}>
+              <span style={{width:22,height:22,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
+                background:p.gender==="M"?SKY_L:ROSE_L,color:p.gender==="M"?SKY:ROSE,fontSize:9,fontWeight:900,flexShrink:0}}>
+                {p.gender}
+              </span>
+              <span style={{flex:1,fontSize:13,fontWeight:500}}>{p.name}</span>
+              <span style={{fontSize:11,color:EMERALD,fontWeight:700}}>Lv{p.skill}</span>
+              <button onClick={()=>removeOne(p.id)} style={{background:"none",border:"none",cursor:"pointer",opacity:.4,fontSize:14}}>✕</button>
+            </div>
+          ))
+        }
+      </div>
+      {/* Confirm */}
+      <div style={{padding:14,display:"flex",gap:10,borderTop:`1px solid ${BORDER}`}}>
         <button onClick={onClose} style={{flex:1,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)",fontWeight:700}}>取消 Cancel</button>
-        <button onClick={e=>{e.stopPropagation();onConfirm(nM,nF);}} style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:900}}>确认 Confirm</button>
+        <button onClick={e=>{e.stopPropagation();confirm();}} disabled={players.length===0}
+          style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",fontWeight:900,
+            background:players.length>0?EMERALD:"rgba(0,0,0,.05)",
+            color:players.length>0?"#fff":"rgba(0,0,0,.25)",
+            cursor:players.length>0?"pointer":"not-allowed"}}>
+          确认加入 {players.length>0?`(${players.length}人)`:""}
+        </button>
       </div>
     </div>
   </div>;
@@ -1138,19 +1204,12 @@ function ExtraRoundsModal({onConfirm, onClose}){
 }
 
 /* ── ResultView ── */
-function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, onRemovePlayers, onMoreRounds, isOwner, players=[]}){
+function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, onRemovePlayers, onMoreRounds, isOwner, players=[], onAddClick, onRemoveClick, onMoreClick}){
   const [open,setOpen]=useState(0);
-  const [addModal,setAddModal]=useState(null);   // afterRound index
-  const [removeModal,setRemoveModal]=useState(null); // afterRound index
-  const [moreModal,setMoreModal]=useState(null);  // afterRound index
   const total=rounds.reduce((s,r)=>s+r.length,0);
   const done=Object.values(checked).filter(Boolean).length;
 
-  return <>
-    {addModal!==null && <NumPickerModal title="🏸 有新人加入！" onConfirm={(nM,nF)=>{onAddPlayers(addModal,nM,nF);setAddModal(null);}} onClose={()=>setAddModal(null)}/>}
-    {removeModal!==null && <PlayerPickerModal title="移除选手" players={removeModal.players} multiSelect onPick={(ids)=>{onRemovePlayers(removeModal.ri,ids);setRemoveModal(null);}} onClose={()=>setRemoveModal(null)}/>}
-    {moreModal!==null && <ExtraRoundsModal onConfirm={(n)=>{onMoreRounds(moreModal,n);setMoreModal(null);}} onClose={()=>setMoreModal(null)}/>}
-    <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:8}}>
+  return <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:8}}>
 
     {/* Stats */}
     <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
@@ -1219,26 +1278,25 @@ function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, o
           <DashedSection label="+ 有新人加入 New Players">
             <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
               <div style={{fontSize:12,opacity:.6}}>第 {ri+1} 轮后加入新选手，接下来赛程将更新 · Add players after Round {ri+1}</div>
-              <button onClick={()=>setAddModal(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:700}}>选择加入人数 Select count</button>
+              <button onClick={()=>onAddClick&&onAddClick(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:700}}>选择加入人数 Select count</button>
             </div>
           </DashedSection>
           <DashedSection label="− 有人离开 Leaving">
             <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
               <div style={{fontSize:12,opacity:.6}}>第 {ri+1} 轮后移除选手，接下来赛程将更新 · Remove players after Round {ri+1}</div>
-              <button onClick={()=>setRemoveModal({ri, players})} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:ROSE_L,color:ROSE,fontWeight:700}}>选择要离开的人 Select players leaving</button>
+              <button onClick={()=>onRemoveClick&&onRemoveClick(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:ROSE_L,color:ROSE,fontWeight:700}}>选择要离开的人 Select players leaving</button>
             </div>
           </DashedSection>
           <DashedSection label="➕ 继续加场 Add Rounds">
             <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
               <div style={{fontSize:12,opacity:.6}}>在第 {ri+1} 轮后继续增加轮次 · Add more rounds after Round {ri+1}</div>
-              <button onClick={()=>setMoreModal(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:AMBER_L,color:AMBER,fontWeight:700}}>选择加场数量 Select count</button>
+              <button onClick={()=>onMoreClick&&onMoreClick(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:AMBER_L,color:AMBER,fontWeight:700}}>选择加场数量 Select count</button>
             </div>
           </DashedSection>
         </div>
       </div>
     })}
-  </div>
-  </>;
+  </div>;
 }
 
 /* ── BasicPanel ── */
@@ -1246,17 +1304,25 @@ function BasicPanel(){
   const MODES=[{id:"mixed",label:"混合双打",en:"Mixed Doubles",icon:"⚡"},{id:"mens_doubles",label:"男子双打",en:"Men's Doubles",icon:"💪"},{id:"womens_doubles",label:"女子双打",en:"Women's Doubles",icon:"🌸"},{id:"mens_singles",label:"男子单打",en:"Men's Singles",icon:"🔥"},{id:"womens_singles",label:"女子单打",en:"Women's Singles",icon:"✨"}];
   const [numM,setM]=useState(4),[numF,setF]=useState(4),[mode,setMode]=useState("mixed"),[tgt,setTgt]=useState(5);
   const [rounds,setRounds]=useState(null),[checked,setChecked]=useState({}),[pool,setPool]=useState([]);
+  const [addModal,setAddModal]=useState(null);
+  const [removeModal,setRemoveModal]=useState(null);
+  const [moreModal,setMoreModal]=useState(null);
   const mi=MODES.find(m=>m.id===mode);
   const needM=mi?.id==="mixed"||mi?.id?.includes("mens");
   const needF=mi?.id==="mixed"||mi?.id?.includes("womens");
   function mkPlayers(nM,nF){return [...Array.from({length:nM},(_,i)=>({id:`M${i}`,name:`男${i+1}`,gender:"M"})),...Array.from({length:nF},(_,i)=>({id:`F${i}`,name:`女${i+1}`,gender:"F"}))]; }
   function gen(){const p=mkPlayers(needM?numM:0,needF?numF:0);setPool(p);setRounds(schedWithHistory(p,mode,tgt));setChecked({});}
-  function addPlayers(ri,nM,nF){
+  function addPlayers(ri,nM,nF,namedPlayers){
     const kept=(rounds||[]).slice(0,ri+1);
-    // Build gc from kept rounds
     const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
-    const pm=pool.filter(p=>p.gender==="M").length,pf=pool.filter(p=>p.gender==="F").length;
-    const np=mkPlayers(pm+nM,pf+nF);setPool(np);
+    let np;
+    if(namedPlayers&&namedPlayers.length>0){
+      np=[...pool,...namedPlayers.map(p=>({...p,id:p.id||uid()}))];
+    } else {
+      const pm=pool.filter(p=>p.gender==="M").length,pf=pool.filter(p=>p.gender==="F").length;
+      np=mkPlayers(pm+nM,pf+nF);
+    }
+    setPool(np);
     setRounds([...kept,...schedWithHistory(np,mode,tgt,{},{},gc)]);
   }
   function removePlayer(ri,ids){
@@ -1271,7 +1337,11 @@ function BasicPanel(){
     setRounds([...kept,...schedWithHistory(pool,mode,n,{},{},gc)]);
   }
   const ok=mode==="mixed"?(numM>=1&&numF>=1):(needM?numM>=2:true)&&(needF?numF>=2:true);
-  return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+  return <>
+    {addModal!==null && <NumPickerModal title="🏸 有新人加入！" onConfirm={(nM,nF,named)=>{addPlayers(addModal,nM,nF,named);setAddModal(null);}} onClose={()=>setAddModal(null)}/>}
+    {removeModal!==null && <PlayerPickerModal title="移除选手 Remove Players" players={removeModal.players} multiSelect onPick={(ids)=>{removePlayer(removeModal.ri,ids);setRemoveModal(null);}} onClose={()=>setRemoveModal(null)}/>}
+    {moreModal!==null && <ExtraRoundsModal onConfirm={(n)=>{moreRounds(moreModal,n);setMoreModal(null);}} onClose={()=>setMoreModal(null)}/>}
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
     <div style={{display:"grid",gridTemplateColumns:needM&&needF?"1fr 1fr":"1fr",gap:12}}>
       {needM&&<div style={{background:SKY_L,border:"1px solid rgba(2,132,199,.25)",borderRadius:16,padding:14}}>
         <div style={{fontSize:11,marginBottom:10,opacity:.7,whiteSpace:"pre-line",lineHeight:1.4}}>{"男生人数\nMale Players"}</div>
@@ -1307,8 +1377,9 @@ function BasicPanel(){
       </button>;})}
     </div>
     <button onClick={gen} disabled={!ok} style={{width:"100%",padding:"14px 0",borderRadius:16,fontWeight:900,fontSize:14,background:ok?EMERALD:"rgba(0,0,0,.05)",border:"none",cursor:ok?"pointer":"not-allowed",color:ok?"#fff":"rgba(0,0,0,.25)"}}>🏸 生成赛程 Generate Schedule</button>
-    {rounds&&<ResultView rounds={rounds} mode={mode} checked={checked} setChecked={setChecked} onRegen={gen} onAddPlayers={addPlayers} onRemovePlayers={removePlayer} onMoreRounds={moreRounds} isOwner={true} players={pool}/>}
-  </div>;
+    {rounds&&<ResultView rounds={rounds} mode={mode} checked={checked} setChecked={setChecked} onRegen={gen} isOwner={true} players={pool} onAddClick={ri=>setAddModal(ri)} onRemoveClick={ri=>setRemoveModal({ri,players:pool})} onMoreClick={ri=>setMoreModal(ri)}/>}
+  </div>
+  </>;
 }
 
 /* ── AdvancedPanel ── */
@@ -1357,6 +1428,9 @@ function AdvancedPanel(){
   const [sync,setSync]=useState("");
   const [roomMembers,setRoomMembers]=useState([]);
   const [showTransfer,setShowTransfer]=useState(false);
+  const [addModal,setAddModal]=useState(null);
+  const [removeModal,setRemoveModal]=useState(null);
+  const [moreModal,setMoreModal]=useState(null);
   const [targetGames,setTargetGames]=useState(5);
   const [matchMode,setMatchMode]=useState("random");
   const [gameMode,setGameMode]=useState("mixed");
@@ -1428,14 +1502,20 @@ function AdvancedPanel(){
     setRounds(newRounds);setChecked({});setTab("schedule");
     saveRoomState(players,newRounds);
   }
-  function addPlayers(ri,nM,nF){
+  function addPlayers(ri,nM,nF,namedPlayers){
     if(!isOwner)return;
     const kept=(rounds||[]).slice(0,ri+1);
     const gc=buildGcFromRounds(kept);
     const {opposed,teamed}=buildOpposedFromRounds(kept);
-    const nm=[...ms,...Array.from({length:nM},(_,i)=>({id:uid(),name:`新男${i+1}`,gender:"M",skill:3,addedBy:myId}))];
-    const nf=[...fs,...Array.from({length:nF},(_,i)=>({id:uid(),name:`新女${i+1}`,gender:"F",skill:3,addedBy:myId}))];
-    const np=[...nm,...nf];setPlayers(np);
+    let np;
+    if(namedPlayers&&namedPlayers.length>0){
+      np=[...players,...namedPlayers.map(p=>({...p,addedBy:myId}))];
+    } else {
+      const nm=[...ms,...Array.from({length:nM},(_,i)=>({id:uid(),name:`新男${i+1}`,gender:"M",skill:3,addedBy:myId}))];
+      const nf=[...fs,...Array.from({length:nF},(_,i)=>({id:uid(),name:`新女${i+1}`,gender:"F",skill:3,addedBy:myId}))];
+      np=[...nm,...nf];
+    }
+    setPlayers(np);
     const nr=[...kept,...schedWithHistory(np,gameMode,targetGames,opposed,teamed,gc)];
     setRounds(nr);saveRoomState(np,nr);
   }
@@ -1512,6 +1592,9 @@ function AdvancedPanel(){
   );
 
   return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    {addModal!==null && <NumPickerModal title="🏸 有新人加入！" onConfirm={(nM,nF,named)=>{addPlayers(addModal,nM,nF,named);setAddModal(null);}} onClose={()=>setAddModal(null)}/>}
+    {removeModal!==null && <PlayerPickerModal title="移除选手 Remove Players" players={removeModal.players} multiSelect onPick={(ids)=>{removePlayer(removeModal.ri,ids);setRemoveModal(null);}} onClose={()=>setRemoveModal(null)}/>}
+    {moreModal!==null && <ExtraRoundsModal onConfirm={(n)=>{moreRounds(moreModal,n);setMoreModal(null);}} onClose={()=>setMoreModal(null)}/>}
     {showTransfer&&<TransferOwnerModal members={roomMembers} myId={myId} players={players} onTransfer={(id)=>{transferOwner(id);setShowTransfer(false);}} onClose={()=>setShowTransfer(false)}/>}
     {showQuiz&&<SkillQuiz onDone={lv=>{setForm(f=>({...f,skill:Math.round(lv*2)/2}));setShowQuiz(false);}} onClose={()=>setShowQuiz(false)}/>}
 
@@ -1663,9 +1746,10 @@ function AdvancedPanel(){
       </>}
       {!isOwner&&<div style={{...S.card2,padding:12,textAlign:"center",fontSize:12,opacity:.6}}>等待房主生成赛程 · Waiting for host to generate…</div>}
       {rounds&&<ResultView rounds={rounds} mode={gameMode} matchMode={matchMode} checked={checked} setChecked={setChecked}
-        onRegen={isOwner?gen:null} onAddPlayers={isOwner?addPlayers:null}
-        onRemovePlayers={isOwner?removePlayer:null} onMoreRounds={isOwner?moreRounds:null}
-        isOwner={isOwner} players={players}/>}
+        onRegen={isOwner?gen:null} isOwner={isOwner} players={players}
+        onAddClick={isOwner?ri=>setAddModal(ri):null}
+        onRemoveClick={isOwner?ri=>setRemoveModal({ri,players}):null}
+        onMoreClick={isOwner?ri=>setMoreModal(ri):null}/>}
       {!rounds&&<div style={{textAlign:"center",padding:"24px 0",opacity:.4,fontSize:13}}>
         {players.length>=2?(isOwner?"点上方生成赛程 · Tap above to generate":"等待房主生成赛程 · Waiting for host"):"请先添加至少2名球员 · Add at least 2 players"}
       </div>}
