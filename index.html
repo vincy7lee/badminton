@@ -886,7 +886,7 @@ function DashedSection({label, children}){
         border:`1px dashed ${open?EMERALD:"rgba(0,0,0,0.2)"}`,
         cursor:"pointer",color:open?"#14532d":"rgba(0,0,0,0.45)",whiteSpace:"nowrap",
         transition:"all 0.2s"
-      }}>{open?(lang==="en"?"▲ Close":"▲ 收起"):label}</button>
+      }>{open?(lang==="en"?"▲ Close":"▲ 收起"):label}</button>
       <div style={{flex:1,borderTop:"2px dashed rgba(0,0,0,0.12)"}}/>
     </div>
     {open && <div style={{marginTop:10,animation:"fadeIn 0.2s"}}>{children}</div>}
@@ -994,7 +994,7 @@ function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, o
     <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
       <div style={S.lbl}>{lang==="en"?"Schedule Stats":lang==="zh"?"赛程统计":"赛程统计 Stats"}</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-        {[{l:lang==="en"?"Rounds":lang==="zh"?"总轮次":"总轮次 Rounds",v:rounds.length,c:SKY},{l:lang==="en"?"Matches":lang==="zh"?"总场次":"总场次 Matches",v:total,c:VIOLET},{l:lang==="en"?"Done":lang==="zh"?"已完成":"已完成 Done",v:`${done}/${total}`,c:EMERALD}].map(s=>(
+        {[{l:lang==="en"?"Rounds":lang==="zh"?"总轮次":"总轮次 Rounds",v:rounds.length,c:SKY},{l:lang==="en"?"Matches":lang==="zh"?"总场次":"总场次 Matches",v:total,c:VIOLET},{l:lang==="en"?"Done":lang==="zh"?"已完成":"已完成 Done",v:`${done}/${total}`,c:EMERALD}]}.map(s=>(
           <div key={s.l} style={{...S.card2,padding:10,textAlign:"center"}}>
             <div style={{fontSize:22,fontWeight:900,color:s.c}}>{s.v}</div>
             <div style={{fontSize:9,marginTop:2,opacity:.6}}>{s.l}</div>
@@ -1340,7 +1340,7 @@ function AdvancedPanel(){
 
     {/* Sub-tabs */}
     <div style={{display:"flex",gap:4,background:"rgba(0,0,0,.04)",padding:4,borderRadius:14,border:`1px solid ${BORDER}`}}>
-      {[["roster",lang==="en"?`Roster (${players.length})`:lang==="zh"?`名册 (${players.length})`:`名册 Roster (${players.length})`],["schedule",lang==="en"?`Schedule${rounds?" ✓":""}`:lang==="zh"?"赛程安排":"赛程安排 Schedule"]].map(([id,l])=>(
+      [["roster",lang==="en"?`Roster (${players.length})`:lang==="zh"?`名册 (${players.length})`:`名册 Roster (${players.length})`],["schedule",lang==="en"?`Schedule${rounds?" ✓":""}`:lang==="zh"?"赛程安排":"赛程安排 Schedule"]].map(([id,l])=>(
         <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"8px 0",borderRadius:10,fontSize:13,fontWeight:700,border:"none",cursor:"pointer",background:tab===id?EMERALD:"transparent",color:tab===id?"#fff":"rgba(17,26,17,.45)"}}>{l}</button>
       ))}
     </div>
@@ -1361,7 +1361,7 @@ function AdvancedPanel(){
       </div>
       <button onClick={addP} disabled={!form.name.trim()} style={{width:"100%",padding:"10px 0",borderRadius:12,fontWeight:700,fontSize:14,border:"none",background:form.name.trim()?EMERALD:"rgba(0,0,0,.05)",cursor:form.name.trim()?"pointer":"not-allowed",color:form.name.trim()?"#fff":"rgba(0,0,0,.25)"}}>+ 添加球员 Add Player</button>
 
-      {players.length===0?<div style={{textAlign:"center",padding:"20px 0",opacity:.4,fontSize:13}}>{lang==="en"?"No players yet — add some above":lang==="zh"?"暂无球员，请添加":"暂无球员 No players yet"}</div>:
+      players.length===0?<div style={{textAlign:"center",padding:"20px 0",opacity:.4,fontSize:13}}>{lang==="en"?"No players yet — add some above":lang==="zh"?"暂无球员，请添加":"暂无球员 No players yet"}</div>:
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span style={{fontSize:11,opacity:.5}}>男 {ms.length} · 女 {fs.length}</span>
@@ -1691,7 +1691,7 @@ ${perPlayerRows ? `<h2>场次分布 Games Distribution · avg ${stats.avgGames} 
             <button onClick={copyText} style={{
               width: "100%", padding: "13px 0", borderRadius: 12, fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer",
               background: copied ? "#14532d" : EMERALD,
-            }} className="c-white">{copied ? (lang==="en"?"✓ Copied! Paste to share":"✓ 已复制！直接粘贴发给队友") : (lang==="en"?"📋 Copy Schedule":"📋 一键复制赛程")}</button>
+            } className="c-white">{copied ? (lang==="en"?"✓ Copied! Paste to share":"✓ 已复制！直接粘贴发给队友") : (lang==="en"?"📋 Copy Schedule":"📋 一键复制赛程")}</button>
           </div>
         )}
 
