@@ -14,42 +14,23 @@
 </head>
 <body>
   <div id="root"></div>
-
-  <!-- React + Babel from CDN -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
   <script type="text/babel" data-presets="react">
-    const { useState, useEffect, useLayoutEffect } = React;
-
+    const { useState, useEffect, useLayoutEffect, useRef } = React;
 
 /* ═══════════════════════════════════════════════════════════
-   THEME — clean light palette, works in any host/iframe
-   All contrast ratios ≥ 4.5:1 (WCAG AA)
+   THEME — light palette
 ═══════════════════════════════════════════════════════════ */
-const BG       = "#f4f6f4";   // page background — very light grey-green
-const BG2      = "#ffffff";   // card background
-const BG3      = "#eef1ee";   // input / sunken surface
-const BORDER   = "rgba(0,0,0,0.09)";
-const TEXT      = "#111a11";  // near-black — contrast vs BG ≈ 16:1
-const TEXT2     = "rgba(17,26,17,0.55)";
-const TEXT3     = "rgba(17,26,17,0.38)";
-const EMERALD   = "#16a34a";  // green-700
-const EMERALD_L = "#dcfce7";  // green-100 (chip / badge bg)
-const SKY       = "#0284c7";  // sky-600
-const SKY_L     = "#e0f2fe";
-const ROSE      = "#e11d48";  // rose-600
-const ROSE_L    = "#ffe4e6";
-const AMBER     = "#d97706";  // amber-600
-const AMBER_L   = "#fef3c7";
-const VIOLET    = "#7c3aed";  // violet-700
-const VIOLET_L  = "#ede9fe";
+const BG="#f4f6f4",BG2="#fff",BG3="#eef1ee",BORDER="rgba(0,0,0,0.09)";
+const TEXT="#111a11",TEXT2="rgba(17,26,17,0.55)",TEXT3="rgba(17,26,17,0.38)";
+const EMERALD="#16a34a",EMERALD_L="#dcfce7";
+const SKY="#0284c7",SKY_L="#e0f2fe",ROSE="#e11d48",ROSE_L="#ffe4e6";
+const AMBER="#d97706",AMBER_L="#fef3c7",VIOLET="#7c3aed",VIOLET_L="#ede9fe";
+const GRAY_L="#f1f5f9";
 
-// No dark-forcing needed — light theme matches any host background
-function useForceDarkBg() {} // kept as no-op so call sites don't break
-
-/* Injected into every root render — defeats host iframe color:white !important */
+function useForceDarkBg() {}
 function BmtStyles() {
   return (
     <style>{`
@@ -57,7 +38,6 @@ function BmtStyles() {
       .bmt * { color: inherit !important; box-sizing: border-box; }
       .bmt button { font-family: inherit !important; }
       .bmt input  { font-family: inherit !important; color: #111a11 !important; }
-      /* colour overrides for intentionally-coloured elements */
       .bmt .c-sky    { color: #0284c7 !important; }
       .bmt .c-rose   { color: #e11d48 !important; }
       .bmt .c-amber  { color: #d97706 !important; }
@@ -67,6 +47,7 @@ function BmtStyles() {
       .bmt .c-dim    { color: rgba(17,26,17,0.35) !important; }
       .bmt .c-white  { color: #ffffff !important; }
       .bmt .c-dark-green { color: #14532d !important; }
+      @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
     `}</style>
   );
 }
@@ -340,6 +321,8 @@ function computeStats(rounds, players, mode) {
   };
 }
 
+
+
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS
 ═══════════════════════════════════════════════════════════ */
@@ -377,315 +360,7 @@ const S = {
   btnGhost: { background: "rgba(0,0,0,0.06)", border: "none", borderRadius: 8, cursor: "pointer" },
 };
 
-function Chip({ player }) {
-  const isMale = player.gender === "M";
-  return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 3,
-      padding: "2px 8px", borderRadius: 999, fontSize: 12, fontWeight: 700,
-      background: isMale ? "rgba(2,132,199,0.10)" : "rgba(225,29,72,0.10)",
-      border: `1px solid ${isMale ? "rgba(2,132,199,0.30)" : "rgba(225,29,72,0.25)"}`,
-    }} className={isMale ? "c-sky" : "c-rose"}>
-      {player.name}{player.borrowed ? "★" : ""}
-      {player.skill !== undefined && <span style={{ opacity: 0.5, fontSize: 9 }}>L{player.skill}</span>}
-    </span>
-  );
-}
 
-function CoverBar({ pct, color }) {
-  const fill = color === "green" ? EMERALD : color === "blue" ? SKY : AMBER;
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{ flex: 1, height: 6, background: "rgba(0,0,0,0.07)", borderRadius: 999, overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${pct}%`, background: fill, borderRadius: 999, transition: "width 1s" }} />
-      </div>
-      <span style={{ fontSize: 11, fontWeight: 900, width: 32, textAlign: "right" }}>{pct}%</span>
-    </div>
-  );
-}
-
-function ModeBtn({ m, active, disabled, onClick, showBorrow }) {
-  return (
-    <button onClick={onClick} disabled={disabled} style={{
-      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-      borderRadius: 12, border: `1px solid ${active ? "rgba(22,163,74,0.45)" : disabled ? "rgba(0,0,0,0.04)" : "rgba(0,0,0,0.07)"}`,
-      background: active ? "rgba(22,163,74,0.12)" : disabled ? "rgba(0,0,0,0.02)" : "rgba(0,0,0,0.04)",
-      width: "100%", textAlign: "left", cursor: disabled ? "not-allowed" : "pointer",
-    }} className={active ? "c-dark-green" : disabled ? "c-dim" : "c-muted"}>
-      <span style={{ fontSize: 16 }}>{m.icon}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 14 }}>{m.label}</div>
-        <div style={{ fontSize: 10, opacity: 0.5 }}>{m.en}</div>
-      </div>
-      {active && <span style={{ fontSize: 12, flexShrink: 0 }}>✓</span>}
-      {showBorrow && !disabled && <span style={{ fontSize: 9, flexShrink: 0 }}>★借位 Sub-in</span>}
-    </button>
-  );
-}
-
-
-/* ═══════════════════════════════════════════════════════════
-   RESULT VIEW
-═══════════════════════════════════════════════════════════ */
-function ResultView({ result, matchMode, onRegenerate }) {
-  const { rounds, stats } = result;
-  const [open, setOpen] = useState(0);
-  const [showShare, setShowShare] = useState(false);
-  const hasBorrow = rounds.some(r => r.some(m => [...m.teamA, ...m.teamB].some(p => p.borrowed)));
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
-      {showShare && <ShareModal result={result} matchMode={matchMode} onClose={() => setShowShare(false)} />}
-
-      {/* Stats card */}
-      <div style={{ ...S.card, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={S.label}>赛程统计 Schedule Stats</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          {[
-            { label: "总轮次 Rounds", val: stats.rounds},
-            { label: "总场次 Matches", val: stats.totalMatches},
-          ].map(s => (
-            <div key={s.label} style={{ ...S.card2, padding: 12, textAlign: "center" }}>
-              <div className={s.cls} style={{ fontSize: 28, fontWeight: 900 }}>{s.val}</div>
-              <div style={{ fontSize: 10, marginTop: 2 }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11}}>
-            <span>对手覆盖率 Opponent Coverage</span><span className="c-green">{stats.opponentCoverage}%</span>
-          </div>
-          <CoverBar pct={stats.opponentCoverage} color="green" />
-          {stats.teammateCoverage !== null && (<>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginTop: 4 }}>
-            <span>队友覆盖率 Partner Coverage</span><span className="c-sky">{stats.teammateCoverage}%</span>
-          </div>
-          <CoverBar pct={stats.teammateCoverage} color="blue" />
-          </>)}
-        </div>
-
-        {/* Per-player game spread */}
-        {stats.perPlayer && stats.perPlayer.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 8, borderTop: "1px solid rgba(0,0,0,0.05)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={S.label}>场次分布 Games Distribution</span>
-              <span style={{ fontSize: 11}}>
-                <span style={{ fontWeight: 700 }}>avg {stats.avgGames}</span>
-                <span style={{ margin: "0 4px" }}>·</span>
-                <span>min {stats.minGames} / max {stats.maxGames}</span>
-              </span>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {[...stats.perPlayer].sort((a,b) => b.games - a.games).map(p => (
-                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 11, width: 52, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
-                  <div style={{ flex: 1, height: 8, background: "rgba(0,0,0,0.05)", borderRadius: 999, overflow: "hidden" }}>
-                    <div style={{
-                      height: "100%", borderRadius: 999, transition: "width .7s",
-                      width: stats.maxGames > 0 ? `${(p.games/stats.maxGames)*100}%` : "0%",
-                      background: p.games === stats.maxGames ? EMERALD : p.games === stats.minGames && stats.minGames < stats.maxGames ? AMBER : "rgba(22,163,74,0.45)",
-                    }} />
-                  </div>
-                  <span style={{ fontSize: 11, fontWeight: 700, width: 20, textAlign: "right"}}>{p.games}</span>
-                </div>
-              ))}
-            </div>
-            {stats.maxGames - stats.minGames <= 1 && stats.perPlayer.length > 1 && (
-              <div style={{ fontSize: 10, background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.15)", borderRadius: 8, padding: "6px 12px" }}>
-                ✓ 场次非常均衡 Highly even game distribution
-              </div>
-            )}
-          </div>
-        )}
-
-        {matchMode === "balanced" && (
-          <div style={{ fontSize: 10, background: "rgba(109,40,217,0.08)", border: "1px solid rgba(139,92,246,0.20)", borderRadius: 8, padding: "8px 12px" }}>
-            ⚖️ 已按技术水平排序，每场对战水平差距最小化<br/>
-            <span style={{ opacity: 0.7 }}>Sorted by skill level — each match minimises the skill gap.</span>
-          </div>
-        )}
-        {hasBorrow && (
-          <div style={{ fontSize: 10, background: "rgba(217,119,6,0.10)", border: "1px solid rgba(217,119,6,0.18)", borderRadius: 8, padding: "8px 12px" }}>
-            ★ 性别人数不均，已从多数方借调球员参与混双<br/>
-            <span style={{ opacity: 0.7 }}>Uneven gender count — players subbed in from the larger group (★).</span>
-          </div>
-        )}
-      </div>
-
-      {/* Rounds header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 4px" }}>
-        <div style={S.label}>完整赛程 Full Schedule</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {onRegenerate && (
-            <button onClick={onRegenerate} style={{ fontSize: 11, background: "none", border: "none", cursor: "pointer", fontWeight: 500 }}>
-              ↻ 重新生成 Regenerate
-            </button>
-          )}
-          <button onClick={() => setShowShare(true)} style={{
-            display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700,
-            background: "rgba(22,163,74,0.12)", border: "1px solid rgba(34,197,94,0.30)", padding: "4px 10px", borderRadius: 8, cursor: "pointer",
-          }} className="c-dark-green">↑ 分享 Share</button>
-        </div>
-      </div>
-
-      {/* Round accordions */}
-      {rounds.map((round, ri) => (
-        <div key={ri} style={{ border: "1px solid rgba(0,0,0,0.07)", borderRadius: 12, overflow: "hidden" }}>
-          <button onClick={() => setOpen(open === ri ? -1 : ri)} style={{
-            width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "10px 16px",
-            background: "rgba(0,0,0,0.03)", border: "none", cursor: "pointer", textAlign: "left",
-          }}>
-            <span style={{
-              width: 24, height: 24, borderRadius: "50%", flexShrink: 0, fontSize: 12, fontWeight: 900,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: "rgba(22,163,74,0.15)", border: "1px solid rgba(34,197,94,0.30)",
-            }} className="c-dark-green">{ri + 1}</span>
-            <span style={{ flex: 1, fontSize: 14, fontWeight: 700}}>第 {ri+1} 轮 Round {ri+1}</span>
-            <span style={{ fontSize: 12}}>{round.length} 场 matches</span>
-            <span style={{ fontSize: 12 }}>{open === ri ? "▲" : "▼"}</span>
-          </button>
-          {open === ri && (
-            <div style={{ padding: "8px 12px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
-              {round.map((match, mi) => {
-                const diff = Math.abs(teamSkill(match.teamA) - teamSkill(match.teamB)).toFixed(1);
-                return (
-                  <div key={mi} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,0.03)", border: "1px solid rgba(0,0,0,0.04)", borderRadius: 8, padding: "8px 12px" }}>
-                    <span style={{ fontSize: 10, fontFamily: "monospace", width: 16, flexShrink: 0 }}>{mi+1}</span>
-                    <div style={{ display: "flex", gap: 3, flex: 1, flexWrap: "wrap" }}>
-                      {match.teamA.map(p => <Chip key={p.id} player={p} />)}
-                    </div>
-                    <div style={{ flexShrink: 0, textAlign: "center" }}>
-                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: 2 }}>VS</div>
-                      {matchMode === "balanced" && <div style={{ fontSize: 8}}>Δ{diff}</div>}
-                    </div>
-                    <div style={{ display: "flex", gap: 3, flex: 1, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                      {match.teamB.map(p => <Chip key={p.id} player={p} />)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-
-/* ═══════════════════════════════════════════════════════════
-   TARGET GAMES INPUT COMPONENT
-═══════════════════════════════════════════════════════════ */
-function TargetGamesInput({ value, onChange }) {
-  return (
-    <div style={{ ...S.card, padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700}}>人均场次目标</div>
-          <div style={{ fontSize: 10}}>
-            Target Per Person · <span className="c-amber">hard cap {value + 5}</span>
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={() => onChange(Math.max(1, value - 1))}
-            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>−</button>
-          <span style={{ fontSize: 28, fontWeight: 900, width: 40, textAlign: "center" }}>{value}</span>
-          <button onClick={() => onChange(Math.min(30, value + 1))}
-            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>+</button>
-        </div>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <input type="range" min={1} max={20} value={value}
-          onChange={e => onChange(+e.target.value)}
-          style={{ width: "100%", accentColor: AMBER, cursor: "pointer" }} />
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9}}>
-          <span>1 game</span><span>10</span><span>20 games</span>
-        </div>
-      </div>
-      <div style={{ fontSize: 10, background: "rgba(0,0,0,0.03)", borderRadius: 8, padding: "6px 12px", lineHeight: 1.6 }}>
-        <div>优先级：① 硬上限(target+5) → ② 总场次均衡 → ③ 配对新鲜度 → ④ 个人最高场次</div>
-        <div style={{ opacity: 0.6 }}>Priority: ① Hard cap · ② Total load · ③ Novelty · ④ Individual max</div>
-      </div>
-    </div>
-  );
-}
-
-
-/* ═══════════════════════════════════════════════════════════
-   BASIC PANEL
-═══════════════════════════════════════════════════════════ */
-function BasicPanel() {
-  const [numM, setNumM] = useState(4);
-  const [numF, setNumF] = useState(4);
-  const [mode, setMode] = useState("mixed");
-  const [targetGames, setTargetGames] = useState(5);
-  const [result, setResult] = useState(null);
-
-  function generate() {
-    const males   = Array.from({ length: numM }, (_, i) => ({ id: `M${i+1}`, name: `男${i+1}`, gender: "M" }));
-    const females = Array.from({ length: numF }, (_, i) => ({ id: `F${i+1}`, name: `女${i+1}`, gender: "F" }));
-    const allMatches = getAllMatches(mode, males, females);
-    if (!allMatches.length) return;
-    const rounds = scheduleRoundRobin(allMatches, targetGames);
-    const rel = mode === "mixed" ? [...males, ...females] : mode.includes("mens") ? males : females;
-    setResult({ rounds, stats: computeStats(rounds, rel, mode) });
-  }
-
-  const modeInfo = MODES.find(m => m.id === mode);
-  const ok = mode === "mixed"
-    ? (numM >= 1 && numF >= 1)
-    : (numM >= (modeInfo?.needM||0) && numF >= (modeInfo?.needF||0));
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* M/F counters */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        {[
-          { label: "男生人数\nMale Players", val: numM, set: setNumM, bg: SKY_L, border: "rgba(2,132,199,0.25)" },
-          { label: "女生人数\nFemale Players", val: numF, set: setNumF, bg: ROSE_L, border: "rgba(225,29,72,0.25)" },
-        ].map(({ label, val, set, color, bg, border }) => (
-          <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 16, padding: 16 }}>
-            <div style={{ fontSize: 11, marginBottom: 12, fontWeight: 500, whiteSpace: "pre-line", lineHeight: 1.4 }}>{label}</div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <button onClick={() => set(Math.max(0, val-1))} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>−</button>
-              <span style={{ fontSize: 36, fontWeight: 900, color }}>{val}</span>
-              <button onClick={() => set(Math.min(20, val+1))} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>+</button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <TargetGamesInput value={targetGames} onChange={setTargetGames} />
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={S.label}>比赛模式 Game Mode</div>
-        {MODES.map(m => {
-          const disabled = m.id !== "mixed" && (numM < m.needM || numF < m.needF);
-          const showBorrow = m.id === "mixed" && numM !== numF && !disabled;
-          return <ModeBtn key={m.id} m={m} active={mode===m.id} disabled={disabled} showBorrow={showBorrow} onClick={() => !disabled && setMode(m.id)} />;
-        })}
-      </div>
-
-      <button onClick={generate} disabled={!ok} style={{
-        width: "100%", padding: "14px 0", borderRadius: 16, fontWeight: 900, fontSize: 14,
-        background: ok ? EMERALD : "rgba(0,0,0,0.05)",
-        border: "none", cursor: ok ? "pointer" : "not-allowed", letterSpacing: 1,
-      }} className={ok ? "c-white" : "c-dim"}>🏸 生成赛程 Generate Schedule</button>
-
-      {result && <ResultView result={result} matchMode="random" onRegenerate={generate} />}
-    </div>
-  );
-}
-
-
-/* ═══════════════════════════════════════════════════════════
-   ADVANCED PANEL
-═══════════════════════════════════════════════════════════ */
-
-/* ═══════════════════════════════════════════════════════════
-   SUPABASE ROOM HELPERS
-═══════════════════════════════════════════════════════════ */
 const SB_URL = "https://uweqzglorvgyvjavkohr.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3ZXF6Z2xvcnZneXZqYXZrb2hyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMzM3OTEsImV4cCI6MjA4OTYwOTc5MX0.qKaWWlliSnRMtolPpw1G_KUPkSlkFk7M4BXhp99mH6A";
 
@@ -717,6 +392,7 @@ async function roomSave(code, players) {
     body: JSON.stringify({ code, players, updated_at: new Date().toISOString() }),
   });
 }
+// roomSave kept for backward compat
 
 function generateRoomCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -724,6 +400,7 @@ function generateRoomCode() {
   for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
   return code;
 }
+
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -928,7 +605,7 @@ const LEVEL_RESULTS = {
 const CHOICES = [
   { label:"会", en:"Yes",        score:3, bg:"rgba(22,163,74,0.12)",  cls:"c-green" },
   { label:"有时会", en:"Usually", score:2, bg:"rgba(2,132,199,0.10)",  cls:"c-sky" },
-  { label:"偶尔", en:"Rarely",   score:1, bg:"rgba(217,119,6,0.10)",  cls:"c-amber" },
+  { label:"偶尔", en:"Occasionally",   score:1, bg:"rgba(217,119,6,0.10)",  cls:"c-amber" },
   { label:"不会", en:"No",       score:0, bg:"rgba(225,29,72,0.10)",  cls:"c-rose" },
 ];
 
@@ -1071,394 +748,650 @@ function SkillQuiz({ onDone, onClose }) {
 }
 
 
-function AdvancedPanel() {
-  const [players, setPlayers] = useState([]);
-  const [roomCode, setRoomCode] = useState("");
-  const [roomInput, setRoomInput] = useState("");
-  const [roomStatus, setRoomStatus] = useState("idle"); // idle | joining | saving | error
-  const [roomScreen, setRoomScreen] = useState("join"); // join | room
-  const [ready, setReady] = useState(false);
-  const [subTab, setSubTab] = useState("roster");
-  const [form, setForm] = useState({ name: "", gender: "M", skill: 3 });
-  const [editId, setEditId] = useState(null);
-  const [showQuiz, setShowQuiz] = useState(false);
-  const [mode, setMode] = useState("mixed");
-  const [matchMode, setMatchMode] = useState("random");
-  const [targetGames, setTargetGames] = useState(5);
-  const [result, setResult] = useState(null);
 
-  // On mount: restore saved room code from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem("bmt_room_code");
-    if (saved) {
-      setRoomCode(saved);
-      setRoomInput(saved);
-      setRoomScreen("room");
-      loadRoom(saved);
-    } else {
-      setReady(true);
-    }
-  }, []);
+const BG="#f4f6f4",BG2="#fff",BG3="#eef1ee",BORDER="rgba(0,0,0,0.09)";
+const EMERALD="#16a34a",EMERALD_L="#dcfce7";
+const SKY="#0284c7",SKY_L="#e0f2fe",ROSE="#e11d48",ROSE_L="#ffe4e6";
+const AMBER="#d97706",AMBER_L="#fef3c7",VIOLET="#7c3aed",VIOLET_L="#ede9fe";
+const GRAY_L="#f1f5f9";
+const S={
+  card:{background:BG2,border:`1px solid ${BORDER}`,borderRadius:16,boxShadow:"0 1px 4px rgba(0,0,0,0.06)"},
+  card2:{background:BG3,border:`1px solid ${BORDER}`,borderRadius:12},
+  lbl:{fontSize:10,fontWeight:700,letterSpacing:2,textTransform:"uppercase",opacity:0.5},
+};
 
-  async function loadRoom(code) {
-    setRoomStatus("joining");
-    try {
-      const players = await roomLoad(code);
-      if (players !== null) {
-        setPlayers(players);
-      }
-      setRoomStatus("idle");
-    } catch(e) {
-      setRoomStatus("error");
-    }
-    setReady(true);
-  }
+function uid(){return Math.random().toString(36).slice(2,8);}
+function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=~~(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+const SKILL_LABELS={1:"新手",1.5:"新手+",2:"入门",2.5:"入门+",3:"初级",3.5:"初级+",4:"初中",4.5:"初中+",5:"中级",5.5:"中级+",6:"中高"};
 
-  async function saveRoom(newPlayers) {
-    if (!roomCode) return;
-    setRoomStatus("saving");
-    try {
-      await roomSave(roomCode, newPlayers);
-      setRoomStatus("idle");
-    } catch(e) {
-      setRoomStatus("error");
-      setTimeout(() => setRoomStatus("idle"), 3000);
-    }
-  }
+function Chip({p}){
+  const m=p.gender==="M";
+  return <span style={{display:"inline-flex",padding:"2px 8px",borderRadius:999,fontSize:12,fontWeight:700,
+    background:m?SKY_L:ROSE_L,color:m?SKY:ROSE,
+    border:`1px solid ${m?"rgba(2,132,199,.3)":"rgba(225,29,72,.25)"}`}}>
+    {p.name}{p.borrowed?"★":""}
+  </span>;
+}
 
-  async function joinRoom(code) {
-    const c = code.trim().toUpperCase();
-    if (!c) return;
-    setRoomStatus("joining");
-    try {
-      const existing = await roomLoad(c);
-      if (existing === null) {
-        // New room — create it
-        await roomSave(c, []);
-        setPlayers([]);
-      } else {
-        setPlayers(existing);
-      }
-      setRoomCode(c);
-      localStorage.setItem("bmt_room_code", c);
-      setRoomScreen("room");
-      setRoomStatus("idle");
-    } catch(e) {
-      setRoomStatus("error");
-      setTimeout(() => setRoomStatus("idle"), 3000);
-    }
-    setReady(true);
-  }
+// Full scheduler with history awareness
+function schedWithHistory(players, mode, targetGames, opposed={}, teamed={}, gc={}){
+  const ms=players.filter(p=>p.gender==="M"), fs=players.filter(p=>p.gender==="F");
+  const allMatches = getAllMatches(mode, ms, fs);
+  // Pre-mark fingerprints from history gc so played combos score high
+  const localOpposed={...opposed}, localTeamed={...teamed};
+  return runSchedule(shuffle([...allMatches]), targetGames, (eligible, op, tm, localGc) => {
+    eligible.sort((x,y) => matchPriority(y,op,tm,localGc) - matchPriority(x,op,tm,localGc));
+  }, localOpposed, localTeamed, {...gc});
+}
 
-  function leaveRoom() {
-    localStorage.removeItem("bmt_room_code");
-    setRoomCode("");
-    setRoomInput("");
-    setPlayers([]);
-    setRoomScreen("join");
-    setReady(false);
-    setTimeout(() => setReady(true), 0);
-  }
-
-  const males   = players.filter(p => p.gender === "M");
-  const females = players.filter(p => p.gender === "F");
-
-  function addPlayer() {
-    if (!form.name.trim()) return;
-    const newP = { id: uid(), name: form.name.trim(), gender: form.gender, skill: form.skill };
-    const next = [...players, newP];
-    setPlayers(next);
-    saveRoom(next);
-    setForm(f => ({ ...f, name: "", skill: 3 }));
-  }
-  function delPlayer(id) {
-    const next = players.filter(p => p.id !== id);
-    setPlayers(next);
-    saveRoom(next);
-  }
-  function updPlayer(id, k, v) {
-    const next = players.map(p => p.id === id ? { ...p, [k]: v } : p);
-    setPlayers(next);
-    saveRoom(next);
-  }
-
-  function generate() {
-    const ms = males.map(p => ({ ...p }));
-    const fs = females.map(p => ({ ...p }));
-    const all = getAllMatches(mode, ms, fs);
-    if (!all.length) return;
-    const rounds = matchMode === "balanced" ? scheduleBalanced(all, targetGames) : scheduleRoundRobin(all, targetGames);
-    const rel = mode === "mixed" ? [...ms, ...fs] : mode.includes("mens") ? ms : fs;
-    setResult({ rounds, stats: computeStats(rounds, rel, mode) });
-    setSubTab("schedule");
-  }
-
-  const modeInfo = MODES.find(m => m.id === mode);
-  const ok = mode === "mixed"
-    ? (males.length >= 1 && females.length >= 1)
-    : (males.length >= (modeInfo?.needM||0) && females.length >= (modeInfo?.needF||0));
-
-  // Room join screen
-  if (roomScreen === "join") {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-        <div style={{ ...S.card, padding: 24, display: "flex", flexDirection: "column", gap: 16, textAlign: "center" }}>
-          <div style={{ fontSize: 36 }}>🏸</div>
-          <div>
-            <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 4 }}>加入或创建房间</div>
-            <div style={{ fontSize: 12, opacity: 0.6 }}>Join or create a room to share your player roster</div>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <input
-              value={roomInput}
-              onChange={e => setRoomInput(e.target.value.toUpperCase())}
-              onKeyDown={e => e.key === "Enter" && joinRoom(roomInput)}
-              placeholder="输入房间码 Room code (e.g. ABC123)"
-              maxLength={8}
-              style={{
-                background: BG3, border: "1px solid rgba(0,0,0,0.10)", borderRadius: 12,
-                padding: "12px 16px", fontSize: 18, fontWeight: 900, letterSpacing: 4,
-                textAlign: "center", outline: "none", width: "100%",
-              }}
-            />
-            <button onClick={() => joinRoom(roomInput)} disabled={roomStatus === "joining" || !roomInput.trim()}
-              style={{ width: "100%", padding: "13px 0", borderRadius: 12, fontWeight: 900, fontSize: 15,
-                background: roomInput.trim() ? EMERALD : "rgba(0,0,0,0.05)", border: "none",
-                cursor: roomInput.trim() ? "pointer" : "not-allowed" }}
-              className={roomInput.trim() ? "c-white" : "c-dim"}>
-              {roomStatus === "joining" ? "连接中…" : "加入房间 Join Room"}
-            </button>
-            <div style={{ fontSize: 11, opacity: 0.5 }}>— 或者 —</div>
-            <button onClick={() => joinRoom(generateRoomCode())}
-              style={{ width: "100%", padding: "13px 0", borderRadius: 12, fontWeight: 900, fontSize: 15,
-                background: "rgba(0,0,0,0.06)", border: "none", cursor: "pointer" }}
-              className="c-muted">
-              ✨ 创建新房间 Create New Room
-            </button>
-          </div>
-          {roomStatus === "error" && (
-            <div style={{ fontSize: 12, background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.20)",
-              borderRadius: 8, padding: "8px 12px" }} className="c-rose">
-              连接失败，请检查网络 Connection failed
-            </div>
-          )}
-        </div>
-      </div>
+// Extended runSchedule that accepts pre-seeded state
+function runSchedule(allMatches, targetGames, sortFn, opposed={}, teamed={}, gc={}) {
+  const remaining = [...allMatches];
+  const rounds = [];
+  const played = new Set();
+  while (remaining.length > 0) {
+    const eligible = remaining.filter(m =>
+      !played.has(matchFingerprint(m)) && !exceedsHardCap(m, gc, targetGames)
     );
+    if (eligible.length === 0) break;
+    sortFn(eligible, opposed, teamed, gc, targetGames);
+    const used = new Set(), round = [], playedSet = new Set();
+    for (const m of eligible) {
+      const ids = [...m.teamA, ...m.teamB].map(p => p.id);
+      if (ids.every(id => !used.has(id))) {
+        if (ids.some(id => gcGet(gc, id) >= targetGames + 1)) continue;
+        ids.forEach(id => used.add(id));
+        round.push(m); playedSet.add(m);
+        const ap = m.teamA.map(p => baseId(p.id)), bp = m.teamB.map(p => baseId(p.id));
+        if (ap.length === 2) mInc(teamed, ap[0], ap[1]);
+        if (bp.length === 2) mInc(teamed, bp[0], bp[1]);
+        for (const a of ap) for (const b of bp) mInc(opposed, a, b);
+        gcInc(gc, ids);
+        played.add(matchFingerprint(m));
+      }
+    }
+    for (const m of eligible) {
+      if (playedSet.has(m)) continue;
+      const ids = [...m.teamA, ...m.teamB].map(p => p.id);
+      if (ids.every(id => !used.has(id))) {
+        ids.forEach(id => used.add(id));
+        round.push(m); playedSet.add(m);
+        const ap = m.teamA.map(p => baseId(p.id)), bp = m.teamB.map(p => baseId(p.id));
+        if (ap.length === 2) mInc(teamed, ap[0], ap[1]);
+        if (bp.length === 2) mInc(teamed, bp[0], bp[1]);
+        for (const a of ap) for (const b of bp) mInc(opposed, a, b);
+        gcInc(gc, ids);
+        played.add(matchFingerprint(m));
+      }
+    }
+    for (let i = remaining.length - 1; i >= 0; i--) {
+      if (playedSet.has(remaining[i])) remaining.splice(i, 1);
+    }
+    if (round.length === 0) break;
+    rounds.push(round);
+  }
+  return rounds;
+}
+
+/* ── Dashed Divider Section ── */
+function DashedSection({label, children}){
+  const [open,setOpen]=useState(false);
+  return <div style={{margin:"4px 0"}}>
+    <div style={{display:"flex",alignItems:"center",gap:8}}>
+      <div style={{flex:1,borderTop:"2px dashed rgba(0,0,0,0.12)"}}/>
+      <button onClick={()=>setOpen(o=>!o)} style={{
+        fontSize:11,fontWeight:700,padding:"4px 12px",borderRadius:20,
+        background:open?EMERALD_L:GRAY_L,
+        border:`1px dashed ${open?EMERALD:"rgba(0,0,0,0.2)"}`,
+        cursor:"pointer",color:open?"#14532d":"rgba(0,0,0,0.45)",whiteSpace:"nowrap",
+        transition:"all 0.2s"
+      }}>{open?"▲ 收起":label}</button>
+      <div style={{flex:1,borderTop:"2px dashed rgba(0,0,0,0.12)"}}/>
+    </div>
+    {open && <div style={{marginTop:10,animation:"fadeIn 0.2s"}}>{children}</div>}
+    <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}`}</style>
+  </div>;
+}
+
+/* ── PlayerPicker modal (remove players) ── */
+function PlayerPickerModal({title, players, onPick, onClose, multiSelect=false}){
+  const [sel,setSel]=useState(new Set());
+  return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
+    onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{...S.card,padding:20,width:"100%",maxWidth:360,display:"flex",flexDirection:"column",gap:12,maxHeight:"80vh",overflow:"auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{fontWeight:900,fontSize:16}}>{title}</div>
+        <button onClick={onClose} style={{width:28,height:28,borderRadius:"50%",background:"rgba(0,0,0,0.06)",border:"none",cursor:"pointer"}}>✕</button>
+      </div>
+      {players.map(p=>{
+        const selected=sel.has(p.id);
+        return <button key={p.id} onClick={()=>{
+          if(multiSelect){setSel(s=>{const n=new Set(s);n.has(p.id)?n.delete(p.id):n.add(p.id);return n;});}
+          else onPick(p);
+        }} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:12,
+          border:`1px solid ${selected?"rgba(22,163,74,.5)":BORDER}`,
+          background:selected?EMERALD_L:BG3,cursor:"pointer",textAlign:"left"}}>
+          <span style={{width:26,height:26,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
+            background:p.gender==="M"?SKY_L:ROSE_L,color:p.gender==="M"?SKY:ROSE,fontSize:10,fontWeight:900,flexShrink:0}}>{p.gender}</span>
+          <span style={{flex:1,fontWeight:600}}>{p.name}</span>
+          <span style={{fontSize:11,color:EMERALD}}>Lv{p.skill}</span>
+          {selected && <span style={{color:EMERALD}}>✓</span>}
+        </button>;
+      })}
+      {multiSelect && <button onClick={()=>onPick([...sel])} style={{width:"100%",padding:"11px 0",borderRadius:12,fontWeight:900,fontSize:14,border:"none",cursor:"pointer",background:EMERALD,color:"#fff"}}>确认</button>}
+    </div>
+  </div>;
+}
+
+/* ── NumPickerModal (add new players) ── */
+function NumPickerModal({title, onConfirm, onClose}){
+  const [nM,sM]=useState(1),[nF,sF]=useState(1);
+  return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
+    onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{...S.card,padding:22,width:"100%",maxWidth:340,display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{fontWeight:900,fontSize:16}}>{title}</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        {[{l:"新男生\nNew Males",v:nM,s:sM,bg:SKY_L,c:SKY},{l:"新女生\nNew Females",v:nF,s:sF,bg:ROSE_L,c:ROSE}].map(({l,v,s,bg,c})=>(
+          <div key={l} style={{background:bg,borderRadius:14,padding:12}}>
+            <div style={{fontSize:10,marginBottom:8,whiteSpace:"pre-line",lineHeight:1.4,opacity:.7}}>{l}</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <button onClick={()=>s(Math.max(0,v-1))} style={{width:28,height:28,borderRadius:6,background:"rgba(0,0,0,.07)",border:"none",fontSize:16,cursor:"pointer"}}>−</button>
+              <span style={{fontSize:26,fontWeight:900,color:c}}>{v}</span>
+              <button onClick={()=>s(Math.min(10,v+1))} style={{width:28,height:28,borderRadius:6,background:"rgba(0,0,0,.07)",border:"none",fontSize:16,cursor:"pointer"}}>+</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:"flex",gap:10}}>
+        <button onClick={onClose} style={{flex:1,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)",fontWeight:700}}>取消</button>
+        <button onClick={()=>onConfirm(nM,nF)} style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:900}}>确认</button>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ── ExtraRoundsModal ── */
+function ExtraRoundsModal({onConfirm, onClose}){
+  const [n,setN]=useState(3);
+  return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
+    onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{...S.card,padding:22,width:"100%",maxWidth:320,display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{fontWeight:900,fontSize:16}}>➕ 继续加场</div>
+      <div style={{fontSize:12,opacity:.6}}>在现有赛程后继续生成几轮？</div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:16}}>
+        <button onClick={()=>setN(Math.max(1,n-1))} style={{width:40,height:40,borderRadius:10,background:"rgba(0,0,0,.07)",border:"none",fontSize:20,cursor:"pointer"}}>−</button>
+        <span style={{fontSize:36,fontWeight:900,color:EMERALD,width:50,textAlign:"center"}}>{n}</span>
+        <button onClick={()=>setN(Math.min(20,n+1))} style={{width:40,height:40,borderRadius:10,background:"rgba(0,0,0,.07)",border:"none",fontSize:20,cursor:"pointer"}}>+</button>
+      </div>
+      <div style={{display:"flex",gap:10}}>
+        <button onClick={onClose} style={{flex:1,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)",fontWeight:700}}>取消</button>
+        <button onClick={()=>onConfirm(n)} style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:900}}>生成 {n} 轮</button>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ── ResultView ── */
+function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, onRemovePlayers, onMoreRounds, isOwner}){
+  const [open,setOpen]=useState(0);
+  const [addModal,setAddModal]=useState(null);   // afterRound index
+  const [removeModal,setRemoveModal]=useState(null); // afterRound index
+  const [moreModal,setMoreModal]=useState(null);  // afterRound index
+  const total=rounds.reduce((s,r)=>s+r.length,0);
+  const done=Object.values(checked).filter(Boolean).length;
+
+  return <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:8}}>
+    {addModal!==null && <NumPickerModal title="🏸 有新人加入！" onConfirm={(nM,nF)=>{onAddPlayers(addModal,nM,nF);setAddModal(null);}} onClose={()=>setAddModal(null)}/>}
+    {removeModal!==null && <PlayerPickerModal title="移除选手" players={removeModal.players} multiSelect onPick={(ids)=>{onRemovePlayers(removeModal.ri,ids);setRemoveModal(null);}} onClose={()=>setRemoveModal(null)}/>}
+    {moreModal!==null && <ExtraRoundsModal onConfirm={(n)=>{onMoreRounds(moreModal,n);setMoreModal(null);}} onClose={()=>setMoreModal(null)}/>}
+
+    {/* Stats */}
+    <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
+      <div style={S.lbl}>赛程统计 Stats</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+        {[{l:"总轮次",v:rounds.length,c:SKY},{l:"总场次",v:total,c:VIOLET},{l:"已完成",v:`${done}/${total}`,c:EMERALD}].map(s=>(
+          <div key={s.l} style={{...S.card2,padding:10,textAlign:"center"}}>
+            <div style={{fontSize:22,fontWeight:900,color:s.c}}>{s.v}</div>
+            <div style={{fontSize:9,marginTop:2,opacity:.6}}>{s.l}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Header */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"0 4px"}}>
+      <div style={S.lbl}>完整赛程 Full Schedule</div>
+      {isOwner && onRegen && <button onClick={onRegen} style={{fontSize:11,background:"none",border:"none",cursor:"pointer",color:EMERALD,fontWeight:500}}>↻ 重新生成</button>}
+    </div>
+
+    {rounds.map((round,ri)=>{
+      const roundDone=round.every((_,mi)=>checked[`${ri}-${mi}`]);
+      return <div key={ri}>
+        {/* Round accordion */}
+        <div style={{border:`1px solid ${roundDone?"rgba(22,163,74,.35)":"rgba(0,0,0,.07)"}`,borderRadius:12,overflow:"hidden",
+          background:roundDone?"rgba(22,163,74,.04)":BG2}}>
+          <button onClick={()=>setOpen(open===ri?-1:ri)} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:roundDone?EMERALD_L:"rgba(0,0,0,.03)",border:"none",cursor:"pointer",textAlign:"left"}}>
+            <span style={{width:24,height:24,borderRadius:"50%",flexShrink:0,fontSize:12,fontWeight:900,
+              display:"flex",alignItems:"center",justifyContent:"center",
+              background:roundDone?EMERALD:EMERALD_L,color:roundDone?"#fff":"#14532d",
+              border:`1px solid ${roundDone?EMERALD:"rgba(22,163,74,.3)"}`}}>
+              {roundDone?"✓":ri+1}
+            </span>
+            <span style={{flex:1,fontSize:14,fontWeight:700,color:roundDone?"#14532d":"inherit"}}>第 {ri+1} 轮 Round {ri+1}</span>
+            <span style={{fontSize:11,opacity:.5}}>{round.filter((_,mi)=>checked[`${ri}-${mi}`]).length}/{round.length} 场</span>
+            <span style={{fontSize:12}}>{open===ri?"▲":"▼"}</span>
+          </button>
+          {open===ri && <div style={{padding:"8px 10px 10px",display:"flex",flexDirection:"column",gap:6}}>
+            {round.map((m,mi)=>{
+              const key=`${ri}-${mi}`;
+              const done2=checked[key];
+              return <div key={mi} style={{display:"flex",alignItems:"center",gap:8,
+                background:done2?"rgba(22,163,74,.08)":"rgba(0,0,0,.03)",
+                border:`1px solid ${done2?"rgba(22,163,74,.2)":"rgba(0,0,0,.04)"}`,
+                borderRadius:8,padding:"8px 10px",cursor:"pointer",transition:"all .15s"}}
+                onClick={()=>setChecked(c=>({...c,[key]:!c[key]}))}>
+                {/* Checkmark */}
+                <div style={{width:20,height:20,borderRadius:6,flexShrink:0,
+                  background:done2?EMERALD:"rgba(0,0,0,.06)",
+                  border:`1.5px solid ${done2?EMERALD:"rgba(0,0,0,.15)"}`,
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  color:"#fff",fontSize:12,fontWeight:900}}>
+                  {done2?"✓":""}
+                </div>
+                <span style={{fontSize:10,fontFamily:"monospace",width:14,opacity:.4}}>{mi+1}</span>
+                <div style={{display:"flex",gap:3,flex:1,flexWrap:"wrap",opacity:done2?.6:1}}>{m.teamA.map(p=><Chip key={p.id} p={p}/>)}</div>
+                <div style={{fontSize:10,fontWeight:900,letterSpacing:2,color:EMERALD,flexShrink:0}}>VS</div>
+                <div style={{display:"flex",gap:3,flex:1,flexWrap:"wrap",justifyContent:"flex-end",opacity:done2?.6:1}}>{m.teamB.map(p=><Chip key={p.id} p={p}/>)}</div>
+              </div>;
+            })}
+          </div>}
+        </div>
+
+        {/* Dashed section between rounds */}
+        <div style={{display:"flex",flexDirection:"column",gap:6,margin:"4px 0 6px"}}>
+          <DashedSection label="+ 有新人加入">
+            <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
+              <div style={{fontSize:12,opacity:.6}}>第 {ri+1} 轮后加入新选手，接下来赛程将更新</div>
+              <button onClick={()=>setAddModal(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:700}}>选择加入人数</button>
+            </div>
+          </DashedSection>
+          <DashedSection label="− 有人离开">
+            <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
+              <div style={{fontSize:12,opacity:.6}}>第 {ri+1} 轮后移除选手，接下来赛程将更新</div>
+              <button onClick={()=>setRemoveModal({ri, players:[{id:"p1",name:"张三",gender:"M",skill:3},{id:"p2",name:"李四",gender:"F",skill:2},{id:"p3",name:"王五",gender:"M",skill:4}]})}
+                style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:ROSE_L,color:ROSE,fontWeight:700}}>选择要离开的人</button>
+            </div>
+          </DashedSection>
+          <DashedSection label="➕ 继续加场">
+            <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
+              <div style={{fontSize:12,opacity:.6}}>在第 {ri+1} 轮后继续增加轮次</div>
+              <button onClick={()=>setMoreModal(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:AMBER_L,color:AMBER,fontWeight:700}}>选择加场数量</button>
+            </div>
+          </DashedSection>
+        </div>
+      </div>;
+    })}
+  </div>;
+}
+
+/* ── BasicPanel ── */
+function BasicPanel(){
+  const MODES=[{id:"mixed",label:"混合双打",en:"Mixed Doubles",icon:"⚡"},{id:"mens_doubles",label:"男子双打",en:"Men's Doubles",icon:"💪"},{id:"womens_doubles",label:"女子双打",en:"Women's Doubles",icon:"🌸"},{id:"mens_singles",label:"男子单打",en:"Men's Singles",icon:"🔥"},{id:"womens_singles",label:"女子单打",en:"Women's Singles",icon:"✨"}];
+  const [numM,setM]=useState(4),[numF,setF]=useState(4),[mode,setMode]=useState("mixed"),[tgt,setTgt]=useState(5);
+  const [rounds,setRounds]=useState(null),[checked,setChecked]=useState({}),[pool,setPool]=useState([]);
+  const mi=MODES.find(m=>m.id===mode);
+  const needM=mi?.id==="mixed"||mi?.id?.includes("mens");
+  const needF=mi?.id==="mixed"||mi?.id?.includes("womens");
+  function mkPlayers(nM,nF){return [...Array.from({length:nM},(_,i)=>({id:`M${i}`,name:`男${i+1}`,gender:"M"})),...Array.from({length:nF},(_,i)=>({id:`F${i}`,name:`女${i+1}`,gender:"F"}))]; }
+  function gen(){const p=mkPlayers(needM?numM:0,needF?numF:0);setPool(p);setRounds(schedWithHistory(p,mode,tgt));setChecked({});}
+  function addPlayers(ri,nM,nF){
+    const kept=(rounds||[]).slice(0,ri+1);
+    // Build gc from kept rounds
+    const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
+    const pm=pool.filter(p=>p.gender==="M").length,pf=pool.filter(p=>p.gender==="F").length;
+    const np=mkPlayers(pm+nM,pf+nF);setPool(np);
+    setRounds([...kept,...schedWithHistory(np,mode,tgt,{},{},gc)]);
+  }
+  function removePlayer(ri,ids){
+    const kept=(rounds||[]).slice(0,ri+1);
+    const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
+    const np=pool.filter(p=>!ids.includes(p.id));setPool(np);
+    setRounds([...kept,...schedWithHistory(np,mode,tgt,{},{},gc)]);
+  }
+  function moreRounds(ri,n){
+    const kept=(rounds||[]).slice(0,ri+1);
+    const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
+    setRounds([...kept,...schedWithHistory(pool,mode,n,{},{},gc)]);
+  }
+  const ok=mode==="mixed"?(numM>=1&&numF>=1):(needM?numM>=2:true)&&(needF?numF>=2:true);
+  return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+    <div style={{display:"grid",gridTemplateColumns:needM&&needF?"1fr 1fr":"1fr",gap:12}}>
+      {needM&&<div style={{background:SKY_L,border:"1px solid rgba(2,132,199,.25)",borderRadius:16,padding:14}}>
+        <div style={{fontSize:11,marginBottom:10,opacity:.7,whiteSpace:"pre-line",lineHeight:1.4}}>{"男生人数\nMale Players"}</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <button onClick={()=>setM(Math.max(0,numM-1))} style={{width:32,height:32,borderRadius:8,background:"rgba(0,0,0,.07)",border:"none",fontSize:18,cursor:"pointer"}}>−</button>
+          <span style={{fontSize:36,fontWeight:900,color:SKY}}>{numM}</span>
+          <button onClick={()=>setM(Math.min(20,numM+1))} style={{width:32,height:32,borderRadius:8,background:"rgba(0,0,0,.07)",border:"none",fontSize:18,cursor:"pointer"}}>+</button>
+        </div>
+      </div>}
+      {needF&&<div style={{background:ROSE_L,border:"1px solid rgba(225,29,72,.25)",borderRadius:16,padding:14}}>
+        <div style={{fontSize:11,marginBottom:10,opacity:.7,whiteSpace:"pre-line",lineHeight:1.4}}>{"女生人数\nFemale Players"}</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <button onClick={()=>setF(Math.max(0,numF-1))} style={{width:32,height:32,borderRadius:8,background:"rgba(0,0,0,.07)",border:"none",fontSize:18,cursor:"pointer"}}>−</button>
+          <span style={{fontSize:36,fontWeight:900,color:ROSE}}>{numF}</span>
+          <button onClick={()=>setF(Math.min(20,numF+1))} style={{width:32,height:32,borderRadius:8,background:"rgba(0,0,0,.07)",border:"none",fontSize:18,cursor:"pointer"}}>+</button>
+        </div>
+      </div>}
+    </div>
+    <div style={{...S.card,padding:14,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <div><div style={{fontSize:14,fontWeight:700}}>人均场次目标</div><div style={{fontSize:10,opacity:.5}}>Target games per person</div></div>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <button onClick={()=>setTgt(Math.max(1,tgt-1))} style={{width:30,height:30,borderRadius:8,background:"rgba(0,0,0,.07)",border:"none",fontSize:16,cursor:"pointer"}}>−</button>
+        <span style={{fontSize:24,fontWeight:900,color:AMBER,width:32,textAlign:"center"}}>{tgt}</span>
+        <button onClick={()=>setTgt(Math.min(20,tgt+1))} style={{width:30,height:30,borderRadius:8,background:"rgba(0,0,0,.07)",border:"none",fontSize:16,cursor:"pointer"}}>+</button>
+      </div>
+    </div>
+    <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:8}}>
+      <div style={S.lbl}>比赛模式 Game Mode</div>
+      {MODES.map(m=>{const active=mode===m.id;return <button key={m.id} onClick={()=>{setMode(m.id);setRounds(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:12,border:`1px solid ${active?"rgba(22,163,74,.45)":"rgba(0,0,0,.07)"}`,background:active?EMERALD_L:"rgba(0,0,0,.03)",width:"100%",textAlign:"left",cursor:"pointer",color:active?"#14532d":"rgba(17,26,17,.6)"}}>
+        <span style={{fontSize:16}}>{m.icon}</span>
+        <div style={{flex:1}}><div style={{fontWeight:700,fontSize:13}}>{m.label}</div><div style={{fontSize:10,opacity:.5}}>{m.en}</div></div>
+        {active&&<span style={{color:EMERALD}}>✓</span>}
+      </button>;})}
+    </div>
+    <button onClick={gen} disabled={!ok} style={{width:"100%",padding:"14px 0",borderRadius:16,fontWeight:900,fontSize:14,background:ok?EMERALD:"rgba(0,0,0,.05)",border:"none",cursor:ok?"pointer":"not-allowed",color:ok?"#fff":"rgba(0,0,0,.25)"}}>🏸 生成赛程 Generate Schedule</button>
+    {rounds&&<ResultView rounds={rounds} mode={mode} checked={checked} setChecked={setChecked} onRegen={gen} onAddPlayers={addPlayers} onRemovePlayers={removePlayer} onMoreRounds={moreRounds} isOwner={true}/>}
+  </div>;
+}
+
+/* ── AdvancedPanel ── */
+function AdvancedPanel(){
+  const [screen,setScreen]=useState("join"),[input,setInput]=useState(""),[code,setCode]=useState("");
+  const [isOwner,setIsOwner]=useState(false);
+  const [players,setPlayers]=useState([]),[tab,setTab]=useState("roster");
+  const [form,setForm]=useState({name:"",gender:"M",skill:3});
+  const [rounds,setRounds]=useState(null),[checked,setChecked]=useState({});
+  const [sync,setSync]=useState("");
+  const [myId]=useState(()=>{
+    try { let id=localStorage.getItem("bmt_uid"); if(!id){id=uid();localStorage.setItem("bmt_uid",id);} return id; } catch { return uid(); }
+  });
+  // Restore room on mount
+  useEffect(()=>{
+    try {
+      const saved=localStorage.getItem("bmt_room_code");
+      if(saved){ setInput(saved); joinRoom(saved, localStorage.getItem("bmt_room_owner")==="1"); }
+    } catch {}
+  }, []);
+  const ms=players.filter(p=>p.gender==="M"),fs=players.filter(p=>p.gender==="F");
+
+  async function saveRoomState(newPlayers, newRounds, newOwner) {
+    if(!code) return;
+    setSync("同步中…");
+    try {
+      await sbFetch(`/rest/v1/bmt_rooms`, {
+        method:"POST",
+        headers:{"Prefer":"resolution=merge-duplicates,return=representation"},
+        body:JSON.stringify({
+          code,
+          players: newPlayers,
+          schedule: newRounds ? {rounds:newRounds, ts:Date.now()} : null,
+          owner_id: newOwner || myId,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+      setSync("✓ 已同步");
+    } catch { setSync("⚠ 同步失败"); }
+    setTimeout(()=>setSync(""),2500);
   }
 
-  if (!ready) return <div style={{ textAlign: "center", padding: "48px 0", fontSize: 14 }}>加载中… Loading</div>;
+  // Poll every 4 seconds for updates
+  useEffect(()=>{
+    if(!code) return;
+    const poll = async () => {
+      try {
+        const data = await sbFetch(`/rest/v1/bmt_rooms?code=eq.${encodeURIComponent(code)}&select=players,schedule,owner_id`);
+        if(!data||!data[0]) return;
+        const row = data[0];
+        if(row.players) setPlayers(row.players);
+        if(row.schedule?.rounds) setRounds(row.schedule.rounds);
+        if(row.owner_id) setIsOwner(row.owner_id === myId);
+      } catch {}
+    };
+    poll();
+    const iv = setInterval(poll, 4000);
+    return ()=>clearInterval(iv);
+  }, [code]);
 
-  const tabBtn = (id, label) => (
-    <button key={id} onClick={() => setSubTab(id)} style={{
-      flex: 1, padding: "8px 0", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer",
-      background: subTab === id ? EMERALD : "transparent",
-      
-    }}>{label}</button>
+  function addP(){
+    if(!form.name.trim())return;
+    const newP={id:uid(),name:form.name.trim(),gender:form.gender,skill:form.skill,addedBy:myId};
+    const np=[...players,newP];
+    setPlayers(np);
+    setForm(f=>({...f,name:"",skill:3}));
+    saveRoomState(np, rounds);
+  }
+  function delP(id){
+    const np=players.filter(x=>x.id!==id);
+    setPlayers(np);
+    saveRoomState(np, rounds);
+  }
+
+  function buildGcFromRounds(rds){
+    const gc={};
+    (rds||[]).forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
+    return gc;
+  }
+
+  function gen(){
+    if(!isOwner)return;
+    const newRounds=schedWithHistory(players,"mixed",5);
+    setRounds(newRounds);setChecked({});setTab("schedule");
+    saveRoomState(players, newRounds);
+  }
+  function addPlayers(ri,nM,nF){
+    if(!isOwner)return;
+    const kept=(rounds||[]).slice(0,ri+1);
+    const gc=buildGcFromRounds(kept);
+    const nm=[...ms,...Array.from({length:nM},(_,i)=>({id:uid(),name:`新男${i+1}`,gender:"M",skill:3,addedBy:myId}))];
+    const nf=[...fs,...Array.from({length:nF},(_,i)=>({id:uid(),name:`新女${i+1}`,gender:"F",skill:3,addedBy:myId}))];
+    const np=[...nm,...nf]; setPlayers(np);
+    const newRounds=[...kept,...schedWithHistory(np,"mixed",5,{},{},gc)];
+    setRounds(newRounds);
+    saveRoomState(np, newRounds);
+  }
+  function removePlayer(ri,ids){
+    if(!isOwner)return;
+    const kept=(rounds||[]).slice(0,ri+1);
+    const gc=buildGcFromRounds(kept);
+    const np=players.filter(p=>!ids.includes(p.id)); setPlayers(np);
+    const newRounds=[...kept,...schedWithHistory(np,"mixed",5,{},{},gc)];
+    setRounds(newRounds);
+    saveRoomState(np, newRounds);
+  }
+  function moreRounds(ri,n){
+    if(!isOwner)return;
+    const kept=(rounds||[]).slice(0,ri+1);
+    const gc=buildGcFromRounds(kept);
+    const newRounds=[...kept,...schedWithHistory(players,"mixed",n,{},{},gc)];
+    setRounds(newRounds);
+    saveRoomState(players, newRounds);
+  }
+  function transferOwner(newOwnerId){
+    setIsOwner(false);
+    saveRoomState(players, rounds, newOwnerId);
+  }
+
+  async function joinRoom(c, asOwner){
+    const code2=c.trim().toUpperCase();
+    if(!code2)return;
+    try {
+      const data = await sbFetch(`/rest/v1/bmt_rooms?code=eq.${encodeURIComponent(code2)}&select=players,schedule,owner_id`);
+      if(data&&data[0]){
+        if(data[0].players) setPlayers(data[0].players);
+        if(data[0].schedule?.rounds) setRounds(data[0].schedule.rounds);
+        const existOwner = data[0].owner_id;
+        setIsOwner(asOwner || existOwner===myId);
+      } else {
+        // New room
+        await saveRoomState([], null);
+        setIsOwner(true);
+      }
+    } catch { setIsOwner(asOwner); }
+    setCode(code2);
+    try { localStorage.setItem("bmt_room_code",code2); localStorage.setItem("bmt_room_owner",asOwner?"1":"0"); } catch {}
+    setScreen("room");
+  }
+
+  if(screen==="join") return (
+    <div style={{...S.card,padding:24,display:"flex",flexDirection:"column",gap:14,textAlign:"center"}}>
+      <div style={{fontSize:36}}>🏸</div>
+      <div><div style={{fontWeight:900,fontSize:18,marginBottom:4}}>加入或创建房间</div>
+        <div style={{fontSize:12,opacity:.5}}>同一房间共享球员名单和赛程，实时同步</div></div>
+      <input value={input} onChange={e=>setInput(e.target.value.toUpperCase())} placeholder="输入房间码 e.g. ABC123"
+        style={{background:BG3,border:`1px solid ${BORDER}`,borderRadius:12,padding:"12px 16px",fontSize:18,fontWeight:900,letterSpacing:4,textAlign:"center",outline:"none",width:"100%"}}/>
+      <button onClick={()=>joinRoom(input,false)}
+        style={{width:"100%",padding:"13px 0",borderRadius:12,fontWeight:900,fontSize:15,background:input.trim()?EMERALD:"rgba(0,0,0,.1)",border:"none",cursor:"pointer",color:input.trim()?"#fff":"rgba(0,0,0,.3)"}}>加入房间 Join Room</button>
+      <button onClick={()=>{const c="BMT-"+Math.random().toString(36).slice(2,6).toUpperCase();joinRoom(c,true);}}
+        style={{width:"100%",padding:"13px 0",borderRadius:12,fontWeight:900,fontSize:15,background:"rgba(0,0,0,.06)",border:"none",cursor:"pointer"}}>✨ 创建新房间（你是房主）</button>
+    </div>
   );
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {showQuiz && <SkillQuiz
-        onClose={() => setShowQuiz(false)}
-        onDone={level => { setForm(f => ({...f, skill: Math.round(level)})); setShowQuiz(false); }}
-      />}
+  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    {/* Room banner */}
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:EMERALD_L,border:"1px solid rgba(22,163,74,.25)",borderRadius:12,padding:"10px 14px"}}>
+      <div>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:2,opacity:.6,textTransform:"uppercase"}}>
+          房间码 · {isOwner?"👑 房主":"成员"}
+        </div>
+        <div style={{fontSize:9,opacity:.4,letterSpacing:1}}>我的ID: {myId}</div>
+        <div style={{fontSize:20,fontWeight:900,letterSpacing:4,color:EMERALD}}>{code}</div>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:6}}>
+        {sync&&<span style={{fontSize:10,color:EMERALD}}>{sync}</span>}
+        <button style={{fontSize:11,fontWeight:700,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:"rgba(22,163,74,.15)",color:"#14532d"}}>复制</button>
+        {isOwner&&<button onClick={()=>{ const id=window.prompt("输入新房主的用户ID（让对方告诉你）:\n新房主ID:"); if(id) transferOwner(id.trim()); }} style={{fontSize:11,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:AMBER_L,color:AMBER,fontWeight:700}}>👑转让</button>}
+        <button onClick={()=>setScreen("join")} style={{fontSize:11,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)"}}>退出</button>
+      </div>
+    </div>
 
-      {/* Room code banner */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-        background: EMERALD_L, border: "1px solid rgba(22,163,74,0.25)", borderRadius: 12, padding: "10px 14px" }}>
+    {/* Sub-tabs */}
+    <div style={{display:"flex",gap:4,background:"rgba(0,0,0,.04)",padding:4,borderRadius:14,border:`1px solid ${BORDER}`}}>
+      {[["roster",`名册 (${players.length})`],["schedule","赛程安排"]].map(([id,l])=>(
+        <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"8px 0",borderRadius:10,fontSize:13,fontWeight:700,border:"none",cursor:"pointer",background:tab===id?EMERALD:"transparent",color:tab===id?"#fff":"rgba(17,26,17,.45)"}}>{l}</button>
+      ))}
+    </div>
+
+    {tab==="roster"&&<div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
+      <div style={S.lbl}>添加球员 Add Player</div>
+      <div style={{display:"flex",gap:8}}>
+        <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addP()} placeholder="球员名字"
+          style={{flex:1,background:BG3,border:`1px solid ${BORDER}`,borderRadius:12,padding:"10px 12px",fontSize:14,outline:"none"}}/>
+        <div style={{display:"flex",borderRadius:12,overflow:"hidden",border:`1px solid ${BORDER}`}}>
+          {["M","F"].map(g=><button key={g} onClick={()=>setForm(f=>({...f,gender:g}))} style={{padding:"8px 12px",fontSize:13,fontWeight:700,border:"none",cursor:"pointer",background:form.gender===g?(g==="M"?"#0ea5e9":"#f43f5e"):"rgba(0,0,0,.04)",color:form.gender===g?"#fff":"rgba(17,26,17,.5)"}}>{g==="M"?"男":"女"}</button>)}
+        </div>
+      </div>
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6}}><span style={{opacity:.5}}>技术水平</span><span style={{fontWeight:700}}>Lv{form.skill}</span></div>
+        <input type="range" min={2} max={12} step={1} value={form.skill*2} onChange={e=>setForm(f=>({...f,skill:+e.target.value/2}))} style={{width:"100%",accentColor:EMERALD}}/>
+        <button style={{width:"100%",marginTop:6,padding:"8px 0",borderRadius:12,fontWeight:700,fontSize:12,border:`1px dashed ${VIOLET}`,cursor:"pointer",background:VIOLET_L,color:VIOLET}}>🎯 帮我评估等级</button>
+      </div>
+      <button onClick={addP} disabled={!form.name.trim()} style={{width:"100%",padding:"10px 0",borderRadius:12,fontWeight:700,fontSize:14,border:"none",background:form.name.trim()?EMERALD:"rgba(0,0,0,.05)",cursor:form.name.trim()?"pointer":"not-allowed",color:form.name.trim()?"#fff":"rgba(0,0,0,.25)"}}>+ 添加球员 Add Player</button>
+
+      {players.length===0?<div style={{textAlign:"center",padding:"20px 0",opacity:.4,fontSize:13}}>暂无球员，请添加</div>:
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:11,opacity:.5}}>男 {ms.length} · 女 {fs.length}</span>
+            {isOwner&&<button onClick={()=>{if(window.confirm("清空全部？"))setPlayers([]);}} style={{fontSize:11,background:"none",border:"none",cursor:"pointer",color:ROSE,opacity:.6}}>清空全部</button>}
+          </div>
+          {players.map(p=>{
+            const mine=p.addedBy===myId||isOwner;
+            return <div key={p.id} style={{...S.card,padding:"9px 12px",display:"flex",alignItems:"center",gap:10}}>
+              <span style={{width:26,height:26,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",background:p.gender==="M"?SKY_L:ROSE_L,color:p.gender==="M"?SKY:ROSE,fontSize:10,fontWeight:900,flexShrink:0}}>{p.gender}</span>
+              <span style={{flex:1,fontWeight:500}}>{p.name}</span>
+              <span style={{fontSize:11,color:EMERALD,fontWeight:700}}>Lv{p.skill}</span>
+              {mine&&<button onClick={()=>delP(p.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,opacity:.4}}>✕</button>}
+              {!mine&&<span style={{fontSize:10,opacity:.3}}>🔒</span>}
+            </div>;
+          })}
+        </div>}
+    </div>}
+
+    {tab==="schedule"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
+      {isOwner
+        ?<button onClick={gen} disabled={players.length<2} style={{width:"100%",padding:"14px 0",borderRadius:12,fontWeight:900,fontSize:14,border:"none",background:players.length>=2?EMERALD:"rgba(0,0,0,.05)",cursor:players.length>=2?"pointer":"not-allowed",color:players.length>=2?"#fff":"rgba(0,0,0,.25)"}}>🏸 生成赛程 Generate Schedule</button>
+        :<div style={{...S.card2,padding:12,textAlign:"center",fontSize:12,opacity:.6}}>等待房主生成赛程…</div>
+      }
+      {rounds&&<ResultView rounds={rounds} mode="mixed" checked={checked} setChecked={setChecked}
+        onRegen={isOwner?gen:null} onAddPlayers={isOwner?addPlayers:null}
+        onRemovePlayers={isOwner?removePlayer:null} onMoreRounds={isOwner?moreRounds:null}
+        isOwner={isOwner}/>}
+      {!rounds&&<div style={{textAlign:"center",padding:"24px 0",opacity:.4,fontSize:13}}>{players.length>=2?(isOwner?"点上方生成赛程":"等待房主生成赛程"):"请先添加至少2名球员"}</div>}
+    </div>}
+  </div>;
+}
+
+function App(){
+  const [tab,setTab]=useState("basic");
+  return <div style={{background:BG,minHeight:"100vh",fontFamily:"'PingFang SC','Microsoft YaHei',sans-serif",color:"#111a11"}}>
+    <style>{`*{box-sizing:border-box}input::placeholder{opacity:.4}button{font-family:inherit}`}</style>
+    <div style={{maxWidth:400,margin:"0 auto",padding:"32px 16px 64px"}}>
+      <div style={{textAlign:"center",marginBottom:28}}>
+        <div style={{fontSize:40,marginBottom:8}}>🏸</div>
+        <h1 style={{fontSize:24,fontWeight:900,margin:0,letterSpacing:-.5}}>羽毛球赛程安排</h1>
+        <p style={{fontSize:11,marginTop:4,letterSpacing:3,opacity:.4}}>BADMINTON MATCH SCHEDULER</p>
+      </div>
+      <div style={{display:"flex",gap:4,background:"rgba(0,0,0,.04)",border:"1px solid rgba(0,0,0,.05)",padding:4,borderRadius:18,marginBottom:24}}>
+        {[["basic","⚡ 快速模式 Quick"],["advanced","🎯 高级模式 Advanced"]].map(([id,l])=>(
+          <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"10px 0",borderRadius:14,fontSize:13,fontWeight:900,border:"none",cursor:"pointer",background:tab===id?"#16a34a":"transparent",color:tab===id?"#fff":"rgba(17,26,17,.45)"}}>{l}</button>
+        ))}
+      </div>
+      {tab==="basic"&&<BasicPanel/>}
+      {tab==="advanced"&&<AdvancedPanel/>}
+      <div style={{textAlign:"center",fontSize:9,marginTop:40,letterSpacing:3,textTransform:"uppercase",opacity:.3}}>覆盖优化 · 水平匹配 · 性别借位</div>
+    </div>
+  </div>;
+}
+
+
+function TargetGamesInput({ value, onChange }) {
+  return (
+    <div style={{ ...S.card, padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", opacity: 0.6 }}>房间码 Room Code</div>
-          <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: 4 }} className="c-dark-green">{roomCode}</div>
+          <div style={{ fontSize: 14, fontWeight: 700}}>人均场次目标</div>
+          <div style={{ fontSize: 10}}>
+            Target Per Person · <span className="c-amber">hard cap {value + 5}</span>
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {roomStatus === "saving" && <span style={{ fontSize: 11, opacity: 0.5 }}>同步中…</span>}
-          {roomStatus === "error" && <span style={{ fontSize: 11 }} className="c-rose">同步失败</span>}
-          {roomStatus === "idle" && <span style={{ fontSize: 11, opacity: 0.4 }}>✓ 已同步</span>}
-          <button onClick={() => {
-            navigator.clipboard.writeText(roomCode).catch(()=>{});
-          }} style={{ fontSize: 11, background: "rgba(22,163,74,0.15)", border: "none", borderRadius: 8,
-            padding: "5px 10px", cursor: "pointer", fontWeight: 700 }} className="c-dark-green">复制</button>
-          <button onClick={leaveRoom} style={{ fontSize: 11, background: "rgba(0,0,0,0.06)", border: "none",
-            borderRadius: 8, padding: "5px 10px", cursor: "pointer" }} className="c-muted">退出</button>
+          <button onClick={() => onChange(Math.max(1, value - 1))}
+            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>−</button>
+          <span style={{ fontSize: 28, fontWeight: 900, width: 40, textAlign: "center" }}>{value}</span>
+          <button onClick={() => onChange(Math.min(30, value + 1))}
+            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,0,0,0.07)", border: "none", fontWeight: 900, fontSize: 18, cursor: "pointer" }}>+</button>
         </div>
       </div>
-
-      {/* Sub-tabs */}
-      <div style={{ display: "flex", gap: 4, background: "rgba(0,0,0,0.04)", padding: 4, borderRadius: 14, border: "1px solid rgba(0,0,0,0.05)" }}>
-        {tabBtn("roster", `名册 Roster (${players.length})`)}
-        {tabBtn("schedule", "赛程安排 Schedule")}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <input type="range" min={1} max={20} value={value}
+          onChange={e => onChange(+e.target.value)}
+          style={{ width: "100%", accentColor: AMBER, cursor: "pointer" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9}}>
+          <span>1 game</span><span>10</span><span>20 games</span>
+        </div>
       </div>
-
-      {subTab === "roster" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Add form */}
-          <div style={{ ...S.card, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={S.label}>添加球员 Add Player</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))}
-                onKeyDown={e => e.key === "Enter" && addPlayer()}
-                placeholder="球员名字 Player name"
-                style={{ flex: 1, background: "rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, padding: "10px 12px", fontSize: 14, outline: "none" }} />
-              <div style={{ display: "flex", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(0,0,0,0.08)" }}>
-                {["M","F"].map(g => (
-                  <button key={g} onClick={() => setForm(f => ({...f, gender: g}))} style={{
-                    padding: "8px 12px", fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer",
-                    background: form.gender === g ? (g==="M" ? "#0ea5e9" : "#f43f5e") : "rgba(0,0,0,0.04)",
-                    
-                  }}>{g==="M"?"男 M":"女 F"}</button>
-                ))}
-              </div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
-                <span style={S.text3}>技术水平 Skill Level</span>
-                <span style={{ fontWeight: 700 }}>Lv{form.skill} · {skillLabel(form.skill)}</span>
-              </div>
-              <input type="range" min={2} max={12} step={1} value={form.skill * 2}
-                onChange={e => setForm(f => ({...f, skill: +e.target.value / 2}))}
-                style={{ width: "100%", accentColor: EMERALD, cursor: "pointer" }} />
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9}}>
-                <span>Lv1 新手</span><span>Lv3.5</span><span>Lv6 中高</span>
-              </div>
-              <button onClick={() => setShowQuiz(true)} style={{
-                width: "100%", padding: "10px 0", borderRadius: 12, fontWeight: 700, fontSize: 13,
-                border: "1px solid rgba(124,58,237,0.25)", cursor: "pointer", background: VIOLET_L,
-              }} className="c-violet">🎯 不确定？帮我评估等级</button>
-            </div>
-            <button onClick={addPlayer} disabled={!form.name.trim()} style={{
-              width: "100%", padding: "10px 0", borderRadius: 12, fontWeight: 700, fontSize: 14, border: "none",
-              background: form.name.trim() ? EMERALD : "rgba(0,0,0,0.05)",
-              cursor: form.name.trim() ? "pointer" : "not-allowed",
-            }} className={form.name.trim() ? "c-white" : "c-dim"}>+ 添加球员 Add Player</button>
-          </div>
-
-          {players.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px 0", fontSize: 14, lineHeight: 2 }}>暂无球员，请添加<br/>No players yet — add some above</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "0 4px" }}>
-                <span style={{ fontSize: 11, ...S.text3 }}>男 Male {males.length} · 女 Female {females.length}</span>
-                <button style={{ fontSize: 11, background: "none", border: "none", cursor: "pointer" }} onClick={() => { if(window.confirm("清空全部球员？\nClear all players?")) { setPlayers([]); saveRoom([]); } }}>清空 Clear All</button>
-              </div>
-              {players.map(p => (
-                <div key={p.id} style={{ ...S.card, padding: 12 }}>
-                  {editId === p.id ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <input value={p.name} onChange={e => updPlayer(p.id, "name", e.target.value)}
-                          style={{ flex: 1, background: "rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 8, padding: "6px 10px", fontSize: 14, outline: "none" }} />
-                        <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: "1px solid rgba(0,0,0,0.08)" }}>
-                          {["M","F"].map(g => (
-                            <button key={g} onClick={() => updPlayer(p.id, "gender", g)} style={{
-                              padding: "6px 10px", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer",
-                              background: p.gender===g ? (g==="M" ? "#0ea5e9" : "#f43f5e") : "rgba(0,0,0,0.04)",
-                              
-                            }}>{g==="M"?"男":"女"}</button>
-                          ))}
-                        </div>
-                        <button onClick={() => setEditId(null)} style={{ padding: "6px 12px", background: "rgba(22,163,74,0.15)", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }} className="c-dark-green">完成</button>
-                      </div>
-                      <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-                          <span style={S.text3}>Lv{p.skill}</span>
-                          <span className="c-green">{skillLabel(p.skill)}</span>
-                        </div>
-                        <input type="range" min={2} max={12} step={1} value={p.skill * 2}
-                          onChange={e => updPlayer(p.id, "skill", +e.target.value / 2)}
-                          style={{ width: "100%", accentColor: EMERALD, cursor: "pointer" }} />
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{
-                        width: 28, height: 28, borderRadius: "50%", flexShrink: 0, fontSize: 10, fontWeight: 900,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        background: p.gender==="M" ? "rgba(56,189,248,0.25)" : "rgba(251,113,133,0.25)",
-                        
-                      }}>{p.gender}</span>
-                      <span style={{ flex: 1, fontWeight: 500, fontSize: 14 }}>{p.name}</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                        {Array.from({length:10},(_,i) => (
-                          <div key={i} style={{ width: 4, height: 12, borderRadius: 2,
-                            background: i < Math.round(p.skill * 10/6) ? EMERALD : "rgba(0,0,0,0.07)" }} />
-                        ))}
-                        <span style={{ fontSize: 10, fontWeight: 700, marginLeft: 6 }}>Lv{p.skill}</span>
-                      </div>
-                      <button onClick={() => setEditId(p.id)} style={{ background: "none", border: "none", fontSize: 14, cursor: "pointer", padding: "0 6px" }}>✏️</button>
-                      <button onClick={() => delPlayer(p.id)} style={{ background: "none", border: "none", fontSize: 14, cursor: "pointer", padding: "0 6px" }}>✕</button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {subTab === "schedule" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ ...S.card, padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
-            {/* Game mode */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={S.label}>比赛模式 Game Mode</div>
-              {MODES.map(m => {
-                const disabled = m.id !== "mixed" && (males.length < m.needM || females.length < m.needF);
-                const showBorrow = m.id === "mixed" && males.length !== females.length && !disabled;
-                return <ModeBtn key={m.id} m={m} active={mode===m.id} disabled={disabled} showBorrow={showBorrow} onClick={() => !disabled && setMode(m.id)} />;
-              })}
-            </div>
-
-            {/* Match mode */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={S.label}>匹配方式 Matching Mode</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                {[
-                  { id:"random",   icon:"🔀", label:"随机匹配",  en:"Random Match",    desc:"最大化覆盖率" },
-                  { id:"balanced", icon:"⚖️", label:"能力匹配",  en:"Skill-Balanced",  desc:"相近水平对决" },
-                ].map(opt => (
-                  <button key={opt.id} onClick={() => setMatchMode(opt.id)} style={{
-                    padding: 12, borderRadius: 12, border: `1px solid ${matchMode===opt.id ? "rgba(139,92,246,0.40)" : "rgba(0,0,0,0.07)"}`,
-                    background: matchMode===opt.id ? "rgba(109,40,217,0.10)" : "rgba(0,0,0,0.04)",
-                    
-                    textAlign: "left", cursor: "pointer",
-                  }}>
-                    <div style={{ fontSize: 18 }}>{opt.icon}</div>
-                    <div style={{ fontWeight: 700, fontSize: 14, marginTop: 4 }}>{opt.label}</div>
-                    <div style={{ fontSize: 10, opacity: 0.7 }}>{opt.en}</div>
-                    <div style={{ fontSize: 10, opacity: 0.4, marginTop: 2 }}>{opt.desc}</div>
-                  </button>
-                ))}
-              </div>
-              {matchMode === "balanced" && players.length > 0 && (
-                <div style={{ fontSize: 10, background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.18)", borderRadius: 8, padding: "8px 12px", lineHeight: 1.6 }}>
-                  ℹ️ 能力匹配模式需要球员有不同的技术等级才能充分发挥效果<br/>
-                  <span style={{ opacity: 0.7 }}>Works best when players have varied skill levels.</span>
-                </div>
-              )}
-            </div>
-
-            <TargetGamesInput value={targetGames} onChange={setTargetGames} />
-
-            <button onClick={generate} disabled={!ok || players.length < 2} style={{
-              width: "100%", padding: "14px 0", borderRadius: 12, fontWeight: 900, fontSize: 14, border: "none",
-              background: (ok && players.length >= 2) ? EMERALD : "rgba(0,0,0,0.05)",
-              
-              cursor: (ok && players.length >= 2) ? "pointer" : "not-allowed",
-            }} className={(ok && players.length >= 2) ? "c-white" : "c-dim"}>🏸 生成赛程 Generate Schedule</button>
-          </div>
-
-          {result && <ResultView result={result} matchMode={matchMode} onRegenerate={generate} />}
-        </div>
-      )}
+      <div style={{ fontSize: 10, background: "rgba(0,0,0,0.03)", borderRadius: 8, padding: "6px 12px", lineHeight: 1.6 }}>
+        <div>优先级：① 硬上限(target+5) → ② 总场次均衡 → ③ 配对新鲜度 → ④ 个人最高场次</div>
+        <div style={{ opacity: 0.6 }}>Priority: ① Hard cap · ② Total load · ③ Novelty · ④ Individual max</div>
+      </div>
     </div>
   );
 }
 
 
 /* ═══════════════════════════════════════════════════════════
-   SHARE MODAL
+   BASIC PANEL
 ═══════════════════════════════════════════════════════════ */
+
 function ShareModal({ result, matchMode, onClose }) {
   const [shareTab, setShareTab] = useState("text");
   const [copied, setCopied] = useState(false);
@@ -1680,9 +1613,7 @@ ${perPlayerRows ? `<h2>场次分布 Games Distribution · avg ${stats.avgGames} 
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   SHARED VIEW (opened via link)
-═══════════════════════════════════════════════════════════ */
+
 function SharedView({ data }) {
   useForceDarkBg();
   return (
@@ -1711,61 +1642,6 @@ function SharedView({ data }) {
   );
 }
 
-
-function App() {
-  useForceDarkBg();
-  const [tab, setTab] = useState("basic");
-  const [sharedData, setSharedData] = useState(null);
-
-  useEffect(() => {
-    try {
-      const hash = window.location.hash;
-      if (hash.startsWith("#share=")) {
-        const encoded = hash.slice(7);
-        const data = JSON.parse(decodeURIComponent(escape(atob(encoded))));
-        if (data?.rounds && data?.stats) setSharedData(data);
-      }
-    } catch {}
-  }, []);
-
-  if (sharedData) return <SharedView data={sharedData} />;
-
-  return (
-    <div className="bmt" style={{ background: BG, minHeight: "100vh", fontFamily: "'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" }}>
-      <BmtStyles />
-      <div style={{ maxWidth: 400, margin: "0 auto", padding: "32px 16px 64px" }}>
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{ fontSize: 40, marginBottom: 8 }}>🏸</div>
-          <h1 style={{ fontSize: 24, fontWeight: 900, margin: 0, letterSpacing: -0.5 }}>羽毛球赛程安排</h1>
-          <p className="c-dim" style={{ fontSize: 11, marginTop: 4, letterSpacing: 3 }}>BADMINTON MATCH SCHEDULER</p>
-        </div>
-
-        {/* Mode toggle */}
-        <div style={{ display: "flex", gap: 4, background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.05)", padding: 4, borderRadius: 18, marginBottom: 24 }}>
-          {[
-            { id: "basic",    label: "⚡ 快速模式 Quick" },
-            { id: "advanced", label: "🎯 高级模式 Advanced" },
-          ].map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={tab === t.id ? "c-white" : "c-muted"}
-              style={{
-                flex: 1, padding: "10px 0", borderRadius: 14, fontSize: 13, fontWeight: 900, border: "none", cursor: "pointer",
-                background: tab === t.id ? EMERALD : "transparent",
-              }}>{t.label}</button>
-          ))}
-        </div>
-
-        {tab === "basic"    && <BasicPanel />}
-        {tab === "advanced" && <AdvancedPanel />}
-
-        <div className="c-dim" style={{ textAlign: "center", fontSize: 9, marginTop: 40, letterSpacing: 3, textTransform: "uppercase" }}>
-          覆盖优化 Coverage · 水平匹配 Skill Balance · 性别借位 Gender Sub-in
-        </div>
-      </div>
-    </div>
-  );
-}
 
 
     // Mount
