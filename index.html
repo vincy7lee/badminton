@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Build: 2026-03-21 20:55:12 -->
+<!-- Build: 2026-03-21 21:08:06 -->
 <html lang="zh">
 <head>
   <meta charset="UTF-8"/>
@@ -891,7 +891,7 @@ function ShareModal({ result, matchMode, onClose }) {
       .join("");
 
     const html = `<!DOCTYPE html>
-<!-- Build: 2026-03-21 20:55:12 -->
+<!-- Build: 2026-03-21 21:08:06 -->
 <html lang="zh">
 <head>
 <meta charset="UTF-8"/>
@@ -1051,7 +1051,7 @@ function DashedSection({label, children}){
         border:`1px dashed ${open?EMERALD:"rgba(0,0,0,0.2)"}`,
         cursor:"pointer",color:open?"#14532d":"rgba(0,0,0,0.45)",whiteSpace:"nowrap",
         transition:"all 0.2s"
-      }}>{open?"▲ 收起":label}</button>
+      }}>{open?"▲ 收起 Close":label}</button>
       <div style={{flex:1,borderTop:"2px dashed rgba(0,0,0,0.12)"}}/>
     </div>
     {open && <div style={{marginTop:10,animation:"fadeIn 0.2s"}}>{children}</div>}
@@ -1064,7 +1064,7 @@ function PlayerPickerModal({title, players, onPick, onClose, multiSelect=false})
   const [sel,setSel]=useState(new Set());
   return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
     onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{...S.card,padding:20,width:"100%",maxWidth:360,display:"flex",flexDirection:"column",gap:12,maxHeight:"80vh",overflow:"auto"}}>
+    <div style={{...S.card,padding:20,width:"100%",maxWidth:360,display:"flex",flexDirection:"column",gap:12,maxHeight:"80vh",overflow:"auto"}} onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div style={{fontWeight:900,fontSize:16}}>{title}</div>
         <button onClick={onClose} style={{width:28,height:28,borderRadius:"50%",background:"rgba(0,0,0,0.06)",border:"none",cursor:"pointer"}}>✕</button>
@@ -1084,7 +1084,7 @@ function PlayerPickerModal({title, players, onPick, onClose, multiSelect=false})
           {selected && <span style={{color:EMERALD}}>✓</span>}
         </button>;
       })}
-      {multiSelect && <button onClick={()=>onPick([...sel])} style={{width:"100%",padding:"11px 0",borderRadius:12,fontWeight:900,fontSize:14,border:"none",cursor:"pointer",background:EMERALD,color:"#fff"}}>确认</button>}
+      {multiSelect && <button onClick={e=>{e.stopPropagation();onPick([...sel]);}} style={{width:"100%",padding:"11px 0",borderRadius:12,fontWeight:900,fontSize:14,border:"none",cursor:"pointer",background:EMERALD,color:"#fff"}}>确认</button>}
     </div>
   </div>;
 }
@@ -1094,7 +1094,7 @@ function NumPickerModal({title, onConfirm, onClose}){
   const [nM,sM]=useState(1),[nF,sF]=useState(1);
   return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
     onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{...S.card,padding:22,width:"100%",maxWidth:340,display:"flex",flexDirection:"column",gap:14}}>
+    <div style={{...S.card,padding:22,width:"100%",maxWidth:340,display:"flex",flexDirection:"column",gap:14}} onClick={e=>e.stopPropagation()}>
       <div style={{fontWeight:900,fontSize:16}}>{title}</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         {[{l:"新男生\nNew Males",v:nM,s:sM,bg:SKY_L,c:SKY},{l:"新女生\nNew Females",v:nF,s:sF,bg:ROSE_L,c:ROSE}].map(({l,v,s,bg,c})=>(
@@ -1109,8 +1109,8 @@ function NumPickerModal({title, onConfirm, onClose}){
         ))}
       </div>
       <div style={{display:"flex",gap:10}}>
-        <button onClick={onClose} style={{flex:1,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)",fontWeight:700}}>取消</button>
-        <button onClick={()=>onConfirm(nM,nF)} style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:900}}>确认</button>
+        <button onClick={onClose} style={{flex:1,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)",fontWeight:700}}>取消 Cancel</button>
+        <button onClick={e=>{e.stopPropagation();onConfirm(nM,nF);}} style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:900}}>确认 Confirm</button>
       </div>
     </div>
   </div>;
@@ -1121,9 +1121,9 @@ function ExtraRoundsModal({onConfirm, onClose}){
   const [n,setN]=useState(3);
   return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
     onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{...S.card,padding:22,width:"100%",maxWidth:320,display:"flex",flexDirection:"column",gap:14}}>
-      <div style={{fontWeight:900,fontSize:16}}>➕ 继续加场</div>
-      <div style={{fontSize:12,opacity:.6}}>在现有赛程后继续生成几轮？</div>
+    <div style={{...S.card,padding:22,width:"100%",maxWidth:320,display:"flex",flexDirection:"column",gap:14}} onClick={e=>e.stopPropagation()}>
+      <div style={{fontWeight:900,fontSize:16}}>➕ 继续加场 Add Rounds</div>
+      <div style={{fontSize:12,opacity:.6}}>在现有赛程后继续生成几轮？ How many more rounds?</div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:16}}>
         <button onClick={()=>setN(Math.max(1,n-1))} style={{width:40,height:40,borderRadius:10,background:"rgba(0,0,0,.07)",border:"none",fontSize:20,cursor:"pointer"}}>−</button>
         <span style={{fontSize:36,fontWeight:900,color:EMERALD,width:50,textAlign:"center"}}>{n}</span>
@@ -1131,7 +1131,7 @@ function ExtraRoundsModal({onConfirm, onClose}){
       </div>
       <div style={{display:"flex",gap:10}}>
         <button onClick={onClose} style={{flex:1,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)",fontWeight:700}}>取消</button>
-        <button onClick={()=>onConfirm(n)} style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:900}}>生成 {n} 轮</button>
+        <button onClick={e=>{e.stopPropagation();onConfirm(n);}} style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:900}}>生成 {n} 轮</button>
       </div>
     </div>
   </div>;
@@ -1156,7 +1156,7 @@ function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, o
     <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
       <div style={S.lbl}>赛程统计 Stats</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-        {[{l:"总轮次",v:rounds.length,c:SKY},{l:"总场次",v:total,c:VIOLET},{l:"已完成",v:`${done}/${total}`,c:EMERALD}].map(s=>(
+        {[{l:"总轮次 Rounds",v:rounds.length,c:SKY},{l:"总场次 Matches",v:total,c:VIOLET},{l:"已完成 Done",v:`${done}/${total}`,c:EMERALD}].map(s=>(
           <div key={s.l} style={{...S.card2,padding:10,textAlign:"center"}}>
             <div style={{fontSize:22,fontWeight:900,color:s.c}}>{s.v}</div>
             <div style={{fontSize:9,marginTop:2,opacity:.6}}>{s.l}</div>
@@ -1216,22 +1216,22 @@ function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, o
 
         {/* Dashed section between rounds */}
         <div style={{display:"flex",flexDirection:"column",gap:6,margin:"4px 0 6px"}}>
-          <DashedSection label="+ 有新人加入">
+          <DashedSection label="+ 有新人加入 New Players">
             <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
-              <div style={{fontSize:12,opacity:.6}}>第 {ri+1} 轮后加入新选手，接下来赛程将更新</div>
-              <button onClick={()=>setAddModal(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:700}}>选择加入人数</button>
+              <div style={{fontSize:12,opacity:.6}}>第 {ri+1} 轮后加入新选手，接下来赛程将更新 · Add players after Round {ri+1}</div>
+              <button onClick={()=>setAddModal(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:700}}>选择加入人数 Select count</button>
             </div>
           </DashedSection>
-          <DashedSection label="− 有人离开">
+          <DashedSection label="− 有人离开 Leaving">
             <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
-              <div style={{fontSize:12,opacity:.6}}>第 {ri+1} 轮后移除选手，接下来赛程将更新</div>
-              <button onClick={()=>setRemoveModal({ri, players})} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:ROSE_L,color:ROSE,fontWeight:700}}>选择要离开的人 Select players</button>
+              <div style={{fontSize:12,opacity:.6}}>第 {ri+1} 轮后移除选手，接下来赛程将更新 · Remove players after Round {ri+1}</div>
+              <button onClick={()=>setRemoveModal({ri, players})} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:ROSE_L,color:ROSE,fontWeight:700}}>选择要离开的人 Select players leaving</button>
             </div>
           </DashedSection>
-          <DashedSection label="➕ 继续加场">
+          <DashedSection label="➕ 继续加场 Add Rounds">
             <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
-              <div style={{fontSize:12,opacity:.6}}>在第 {ri+1} 轮后继续增加轮次</div>
-              <button onClick={()=>setMoreModal(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:AMBER_L,color:AMBER,fontWeight:700}}>选择加场数量</button>
+              <div style={{fontSize:12,opacity:.6}}>在第 {ri+1} 轮后继续增加轮次 · Add more rounds after Round {ri+1}</div>
+              <button onClick={()=>setMoreModal(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:AMBER_L,color:AMBER,fontWeight:700}}>选择加场数量 Select count</button>
             </div>
           </DashedSection>
         </div>
@@ -1322,7 +1322,7 @@ function TransferOwnerModal({members, myId, players, onTransfer, onClose}){
   const others = [...memberMap.values()].filter(m=>m.id!==myId);
   return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
     onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{...S.card,padding:20,width:"100%",maxWidth:360,display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{...S.card,padding:20,width:"100%",maxWidth:360,display:"flex",flexDirection:"column",gap:12}} onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div style={{fontWeight:900,fontSize:16}}>👑 转让房主 Transfer Host</div>
         <button onClick={onClose} style={{width:28,height:28,borderRadius:"50%",background:"rgba(0,0,0,.06)",border:"none",cursor:"pointer"}}>✕</button>
