@@ -1440,31 +1440,67 @@ function AdvancedPanel(){
 
 function App(){
   const [tab,setTab]=useState("basic");
-  return <div style={{background:BG,minHeight:"100vh",fontFamily:"'PingFang SC','Microsoft YaHei',sans-serif",color:"#111a11"}}>
-    <style>{`*{box-sizing:border-box}input::placeholder{opacity:.4}button{font-family:inherit}`}</style>
-    <div style={{maxWidth:400,margin:"0 auto",padding:"32px 16px 64px"}}>
-      <div style={{textAlign:"center",marginBottom:28}}>
-        <div style={{display:"flex",justifyContent:"center",marginBottom:12}}>
+  const [lang,setLang]=useState(()=>{try{return localStorage.getItem("bmt_lang")||"bi";}catch{return "bi";}});
+  const [sharedData,setSharedData]=useState(null);
+
+  function changeLang(l){setLang(l);try{localStorage.setItem("bmt_lang",l);}catch{}}
+
+  useEffect(()=>{
+    try{
+      const hash=window.location.hash;
+      if(hash.startsWith("#share=")){
+        const encoded=hash.slice(7);
+        const data=JSON.parse(decodeURIComponent(escape(atob(encoded))));
+        if(data?.rounds&&data?.stats) setSharedData(data);
+      }
+    }catch{}
+  },[]);
+
+  if(sharedData) return (
+    <LangContext.Provider value={lang}>
+      <SharedView data={sharedData}/>
+    </LangContext.Provider>
+  );
+
+  return (
+    <LangContext.Provider value={lang}>
+    <div className="bmt" style={{background:BG,minHeight:"100vh",fontFamily:"'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif"}}>
+      <BmtStyles/>
+      <div style={{maxWidth:400,margin:"0 auto",padding:"32px 16px 64px"}}>
+        {/* Language switcher */}
+        <div style={{display:"flex",justifyContent:"center",marginBottom:16}}>
           <LangSwitcher lang={lang} setLang={changeLang}/>
         </div>
-        <div style={{fontSize:40,marginBottom:8}}>🏸</div>
-        <h1 style={{fontSize:24,fontWeight:900,margin:0,letterSpacing:-.5}}>
-          {lang==="en"?"Badminton Scheduler":lang==="zh"?"羽毛球赛程安排":"羽毛球赛程安排"}
-        </h1>
-        <p style={{fontSize:11,marginTop:4,letterSpacing:3,opacity:.4}}>
-          {lang==="zh"?"羽毛球赛程 · 覆盖优化":"BADMINTON MATCH SCHEDULER"}
-        </p>
+        {/* Header */}
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{fontSize:40,marginBottom:8}}>🏸</div>
+          <h1 style={{fontSize:24,fontWeight:900,margin:0,letterSpacing:-.5}}>
+            {lang==="en"?"Badminton Scheduler":"羽毛球赛程安排"}
+          </h1>
+          <p className="c-dim" style={{fontSize:11,marginTop:4,letterSpacing:3}}>
+            {lang==="zh"?"羽毛球赛程 · 覆盖优化":"BADMINTON MATCH SCHEDULER"}
+          </p>
+        </div>
+        {/* Mode toggle */}
+        <div style={{display:"flex",gap:4,background:"rgba(0,0,0,0.04)",border:"1px solid rgba(0,0,0,0.05)",padding:4,borderRadius:18,marginBottom:24}}>
+          {[["basic", lang==="en"?"⚡ Quick Mode":lang==="zh"?"⚡ 快速模式":"⚡ 快速模式 Quick"],
+            ["advanced", lang==="en"?"🎯 Advanced Mode":lang==="zh"?"🎯 高级模式":"🎯 高级模式 Advanced"]
+          ].map(([id,label])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={tab===id?"c-white":"c-muted"}
+              style={{flex:1,padding:"10px 0",borderRadius:14,fontSize:13,fontWeight:900,border:"none",cursor:"pointer",
+                background:tab===id?EMERALD:"transparent"}}>{label}</button>
+          ))}
+        </div>
+        {tab==="basic"&&<BasicPanel/>}
+        {tab==="advanced"&&<AdvancedPanel/>}
+        <div className="c-dim" style={{textAlign:"center",fontSize:9,marginTop:40,letterSpacing:3,textTransform:"uppercase"}}>
+          {lang==="en"?"Coverage · Skill Balance · Gender Sub-in":lang==="zh"?"覆盖优化 · 水平匹配 · 性别借位":"覆盖优化 Coverage · 水平匹配 Skill · 性别借位 Sub-in"}
+        </div>
       </div>
-      <div style={{display:"flex",gap:4,background:"rgba(0,0,0,.04)",border:"1px solid rgba(0,0,0,.05)",padding:4,borderRadius:18,marginBottom:24}}>
-        {[["basic","⚡ 快速模式 Quick"],["advanced","🎯 高级模式 Advanced"]].map(([id,l])=>(
-          <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"10px 0",borderRadius:14,fontSize:13,fontWeight:900,border:"none",cursor:"pointer",background:tab===id?"#16a34a":"transparent",color:tab===id?"#fff":"rgba(17,26,17,.45)"}}>{l}</button>
-        ))}
-      </div>
-      {tab==="basic"&&<BasicPanel lang={lang}/>}
-      {tab==="advanced"&&<AdvancedPanel lang={lang}/>}
-      <div style={{textAlign:"center",fontSize:9,marginTop:40,letterSpacing:3,textTransform:"uppercase",opacity:.3}}>覆盖优化 · 水平匹配 · 性别借位</div>
     </div>
-  </div>;
+    </LangContext.Provider>
+  );
 }
 
 
