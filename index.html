@@ -352,6 +352,7 @@ function skillLabel(v) { return SKILL_LABELS[v] || SKILL_LABELS[Math.round(v*2)/
    SHARED UI ATOMS
 ═══════════════════════════════════════════════════════════ */
 const S = {
+  lbl:   { fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", opacity: 0.5 },
   card:   { background: BG2, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" },
   card2:  { background: BG3, border: `1px solid ${BORDER}`, borderRadius: 12 },
   label:  { fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" },
@@ -749,43 +750,55 @@ function SkillQuiz({ onDone, onClose }) {
 
 
 
-const BG="#f4f6f4",BG2="#fff",BG3="#eef1ee",BORDER="rgba(0,0,0,0.09)";
-const EMERALD="#16a34a",EMERALD_L="#dcfce7";
-const SKY="#0284c7",SKY_L="#e0f2fe",ROSE="#e11d48",ROSE_L="#ffe4e6";
-const AMBER="#d97706",AMBER_L="#fef3c7",VIOLET="#7c3aed",VIOLET_L="#ede9fe";
-const GRAY_L="#f1f5f9";
-const S={
-  card:{background:BG2,border:`1px solid ${BORDER}`,borderRadius:16,boxShadow:"0 1px 4px rgba(0,0,0,0.06)"},
-  card2:{background:BG3,border:`1px solid ${BORDER}`,borderRadius:12},
-  lbl:{fontSize:10,fontWeight:700,letterSpacing:2,textTransform:"uppercase",opacity:0.5},
-};
-
-function uid(){return Math.random().toString(36).slice(2,8);}
-function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=~~(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-const SKILL_LABELS={1:"新手",1.5:"新手+",2:"入门",2.5:"入门+",3:"初级",3.5:"初级+",4:"初中",4.5:"初中+",5:"中级",5.5:"中级+",6:"中高"};
-
-function Chip({p}){
-  const m=p.gender==="M";
-  return <span style={{display:"inline-flex",padding:"2px 8px",borderRadius:999,fontSize:12,fontWeight:700,
-    background:m?SKY_L:ROSE_L,color:m?SKY:ROSE,
-    border:`1px solid ${m?"rgba(2,132,199,.3)":"rgba(225,29,72,.25)"}`}}>
-    {p.name}{p.borrowed?"★":""}
-  </span>;
+function Chip({p, player}) {
+  const pl = p || player;
+  const isMale = pl.gender === "M";
+  return (
+    <span style={{
+      display:"inline-flex",alignItems:"center",gap:3,
+      padding:"2px 8px",borderRadius:999,fontSize:12,fontWeight:700,
+      background:isMale?SKY_L:ROSE_L,
+      border:`1px solid ${isMale?"rgba(2,132,199,0.30)":"rgba(225,29,72,0.25)"}`,
+    }} className={isMale?"c-sky":"c-rose"}>
+      {pl.name}{pl.borrowed?"★":""}
+    </span>
+  );
 }
 
-// Full scheduler with history awareness
-function schedWithHistory(players, mode, targetGames, opposed={}, teamed={}, gc={}){
-  const ms=players.filter(p=>p.gender==="M"), fs=players.filter(p=>p.gender==="F");
+/* ═══════════════════════════════════════════════════════════
+   HISTORY-AWARE SCHEDULER
+═══════════════════════════════════════════════════════════ */
+function buildGcFromRounds(rds) {
+  const gc = {};
+  (rds||[]).forEach(r => r.forEach(m => [...m.teamA,...m.teamB].forEach(p => {
+    const b = baseId(p.id); gc[b] = (gc[b]||0) + 1;
+  })));
+  return gc;
+}
+
+function buildOpposedFromRounds(rds) {
+  const opposed = {}, teamed = {};
+  (rds||[]).forEach(r => r.forEach(m => {
+    const ap = m.teamA.map(p => baseId(p.id));
+    const bp = m.teamB.map(p => baseId(p.id));
+    if (ap.length===2) mInc(teamed, ap[0], ap[1]);
+    if (bp.length===2) mInc(teamed, bp[0], bp[1]);
+    for (const a of ap) for (const b of bp) mInc(opposed, a, b);
+  }));
+  return { opposed, teamed };
+}
+
+function schedWithHistory(players, mode, targetGames, opposedIn={}, teamedIn={}, gcIn={}) {
+  const ms = players.filter(p => p.gender==="M");
+  const fs = players.filter(p => p.gender==="F");
   const allMatches = getAllMatches(mode, ms, fs);
-  // Pre-mark fingerprints from history gc so played combos score high
-  const localOpposed={...opposed}, localTeamed={...teamed};
-  return runSchedule(shuffle([...allMatches]), targetGames, (eligible, op, tm, localGc) => {
-    eligible.sort((x,y) => matchPriority(y,op,tm,localGc) - matchPriority(x,op,tm,localGc));
-  }, localOpposed, localTeamed, {...gc});
+  if (!allMatches.length) return [];
+  // Clone history state so we don't mutate caller's objects
+  const opposed = {...opposedIn}, teamed = {...teamedIn}, gc = {...gcIn};
+  return runScheduleWithState(shuffle([...allMatches]), targetGames, opposed, teamed, gc);
 }
 
-// Extended runSchedule that accepts pre-seeded state
-function runSchedule(allMatches, targetGames, sortFn, opposed={}, teamed={}, gc={}) {
+function runScheduleWithState(allMatches, targetGames, opposed, teamed, gc) {
   const remaining = [...allMatches];
   const rounds = [];
   const played = new Set();
@@ -794,46 +807,35 @@ function runSchedule(allMatches, targetGames, sortFn, opposed={}, teamed={}, gc=
       !played.has(matchFingerprint(m)) && !exceedsHardCap(m, gc, targetGames)
     );
     if (eligible.length === 0) break;
-    sortFn(eligible, opposed, teamed, gc, targetGames);
+    eligible.sort((x, y) => matchPriority(y, opposed, teamed, gc) - matchPriority(x, opposed, teamed, gc));
     const used = new Set(), round = [], playedSet = new Set();
-    for (const m of eligible) {
-      const ids = [...m.teamA, ...m.teamB].map(p => p.id);
-      if (ids.every(id => !used.has(id))) {
-        if (ids.some(id => gcGet(gc, id) >= targetGames + 1)) continue;
+    for (const pass of [0, 1]) {
+      for (const m of eligible) {
+        if (playedSet.has(m)) continue;
+        const ids = [...m.teamA, ...m.teamB].map(p => p.id);
+        if (ids.some(id => used.has(id))) continue;
+        if (pass === 0 && ids.some(id => gcGet(gc, id) >= targetGames + 1)) continue;
         ids.forEach(id => used.add(id));
         round.push(m); playedSet.add(m);
         const ap = m.teamA.map(p => baseId(p.id)), bp = m.teamB.map(p => baseId(p.id));
-        if (ap.length === 2) mInc(teamed, ap[0], ap[1]);
-        if (bp.length === 2) mInc(teamed, bp[0], bp[1]);
+        if (ap.length===2) mInc(teamed, ap[0], ap[1]);
+        if (bp.length===2) mInc(teamed, bp[0], bp[1]);
         for (const a of ap) for (const b of bp) mInc(opposed, a, b);
         gcInc(gc, ids);
         played.add(matchFingerprint(m));
       }
     }
-    for (const m of eligible) {
-      if (playedSet.has(m)) continue;
-      const ids = [...m.teamA, ...m.teamB].map(p => p.id);
-      if (ids.every(id => !used.has(id))) {
-        ids.forEach(id => used.add(id));
-        round.push(m); playedSet.add(m);
-        const ap = m.teamA.map(p => baseId(p.id)), bp = m.teamB.map(p => baseId(p.id));
-        if (ap.length === 2) mInc(teamed, ap[0], ap[1]);
-        if (bp.length === 2) mInc(teamed, bp[0], bp[1]);
-        for (const a of ap) for (const b of bp) mInc(opposed, a, b);
-        gcInc(gc, ids);
-        played.add(matchFingerprint(m));
-      }
-    }
-    for (let i = remaining.length - 1; i >= 0; i--) {
+    for (let i = remaining.length-1; i >= 0; i--) {
       if (playedSet.has(remaining[i])) remaining.splice(i, 1);
     }
     if (round.length === 0) break;
     rounds.push(round);
+    if (rounds.length >= targetGames * 3) break;
   }
   return rounds;
 }
 
-/* ── Dashed Divider Section ── */
+
 function DashedSection({label, children}){
   const [open,setOpen]=useState(false);
   return <div style={{margin:"4px 0"}}>
@@ -1047,20 +1049,20 @@ function BasicPanel(){
   function addPlayers(ri,nM,nF){
     const kept=(rounds||[]).slice(0,ri+1);
     // Build gc from kept rounds
-    const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
+    const gc=buildGcFromRounds(kept);
     const pm=pool.filter(p=>p.gender==="M").length,pf=pool.filter(p=>p.gender==="F").length;
     const np=mkPlayers(pm+nM,pf+nF);setPool(np);
     setRounds([...kept,...schedWithHistory(np,mode,tgt,{},{},gc)]);
   }
   function removePlayer(ri,ids){
     const kept=(rounds||[]).slice(0,ri+1);
-    const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
+    const gc=buildGcFromRounds(kept);
     const np=pool.filter(p=>!ids.includes(p.id));setPool(np);
     setRounds([...kept,...schedWithHistory(np,mode,tgt,{},{},gc)]);
   }
   function moreRounds(ri,n){
     const kept=(rounds||[]).slice(0,ri+1);
-    const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
+    const gc=buildGcFromRounds(kept);
     setRounds([...kept,...schedWithHistory(pool,mode,n,{},{},gc)]);
   }
   const ok=mode==="mixed"?(numM>=1&&numF>=1):(needM?numM>=2:true)&&(needF?numF>=2:true);
@@ -1176,11 +1178,7 @@ function AdvancedPanel(){
     saveRoomState(np, rounds);
   }
 
-  function buildGcFromRounds(rds){
-    const gc={};
-    (rds||[]).forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
-    return gc;
-  }
+  // buildGcFromRounds is defined globally above
 
   function gen(){
     if(!isOwner)return;
