@@ -18,17 +18,25 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script type="text/babel" data-presets="react">
+
     const { useState, useEffect, useLayoutEffect, useRef } = React;
 
-/* ═══════════════════════════════════════════════════════════
-   THEME — light palette
-═══════════════════════════════════════════════════════════ */
-const BG="#f4f6f4",BG2="#fff",BG3="#eef1ee",BORDER="rgba(0,0,0,0.09)";
-const TEXT="#111a11",TEXT2="rgba(17,26,17,0.55)",TEXT3="rgba(17,26,17,0.38)";
-const EMERALD="#16a34a",EMERALD_L="#dcfce7";
-const SKY="#0284c7",SKY_L="#e0f2fe",ROSE="#e11d48",ROSE_L="#ffe4e6";
-const AMBER="#d97706",AMBER_L="#fef3c7",VIOLET="#7c3aed",VIOLET_L="#ede9fe";
+
+const BG="#f4f6f4", BG2="#fff", BG3="#eef1ee", BORDER="rgba(0,0,0,0.09)";
+const TEXT="#111a11", TEXT2="rgba(17,26,17,0.55)", TEXT3="rgba(17,26,17,0.38)";
+const EMERALD="#16a34a", EMERALD_L="#dcfce7";
+const SKY="#0284c7", SKY_L="#e0f2fe";
+const ROSE="#e11d48", ROSE_L="#ffe4e6";
+const AMBER="#d97706", AMBER_L="#fef3c7";
+const VIOLET="#7c3aed", VIOLET_L="#ede9fe";
 const GRAY_L="#f1f5f9";
+
+const S = {
+  card:  { background:BG2, border:`1px solid ${BORDER}`, borderRadius:16, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" },
+  card2: { background:BG3, border:`1px solid ${BORDER}`, borderRadius:12 },
+  lbl:   { fontSize:10, fontWeight:700, letterSpacing:2, textTransform:"uppercase", opacity:0.5 },
+  label: { fontSize:10, fontWeight:700, letterSpacing:2, textTransform:"uppercase" },
+};
 
 function useForceDarkBg() {}
 function BmtStyles() {
@@ -47,41 +55,25 @@ function BmtStyles() {
       .bmt .c-dim    { color: rgba(17,26,17,0.35) !important; }
       .bmt .c-white  { color: #ffffff !important; }
       .bmt .c-dark-green { color: #14532d !important; }
-      @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+      @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
     `}</style>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   LANGUAGE SYSTEM  (bilingual default, zh-only, en-only)
-═══════════════════════════════════════════════════════════ */
-const LangContext = React.createContext("bi"); // "bi" | "zh" | "en"
+
+
+/* ═══ LANGUAGE SYSTEM ═══ */
+const LangContext = React.createContext("bi");
 function useLang() { return React.useContext(LangContext); }
-
-// t(zh, en) — returns text based on current language mode
-function T(zh, en, lang) {
-  if (lang === "zh") return zh;
-  if (lang === "en") return en;
-  return zh && en ? `${zh} ${en}` : (zh || en);
-}
-
-// Language switcher component
 function LangSwitcher({ lang, setLang }) {
-  const opts = [
-    { id:"zh", label:"中文" },
-    { id:"bi", label:"中/EN" },
-    { id:"en", label:"English" },
-  ];
   return (
-    <div style={{ display:"flex", gap:3, background:"rgba(0,0,0,0.04)", padding:3, borderRadius:20,
-      border:"1px solid rgba(0,0,0,0.06)" }}>
-      {opts.map(o => (
+    <div style={{ display:"flex", gap:3, background:"rgba(0,0,0,0.04)", padding:3, borderRadius:20, border:"1px solid rgba(0,0,0,0.06)" }}>
+      {[{id:"zh",label:"中文"},{id:"bi",label:"中/EN"},{id:"en",label:"English"}].map(o => (
         <button key={o.id} onClick={()=>setLang(o.id)} style={{
           padding:"4px 10px", borderRadius:16, fontSize:11, fontWeight:700,
           border:"none", cursor:"pointer",
           background: lang===o.id ? EMERALD : "transparent",
           color: lang===o.id ? "#fff" : "rgba(17,26,17,0.45)",
-          transition:"all 0.15s",
         }}>{o.label}</button>
       ))}
     </div>
@@ -370,6 +362,115 @@ const MODES = [
   { id: "mens_singles",   label: "男子单打", en: "Men's Singles",   icon: "🔥", needM: 2, needF: 0 },
   { id: "womens_singles", label: "女子单打", en: "Women's Singles", icon: "✨", needM: 0, needF: 2 },
 ];
+const SKILL_LABELS = {
+  1:   "新手 Beginner",
+  1.5: "新手+ Beginner+",
+  2:   "入门 Novice",
+  2.5: "入门+ Novice+",
+  3:   "初级 Basic",
+  3.5: "初级+ Basic+",
+  4:   "初中 Pre-Inter",
+  4.5: "初中+ Pre-Inter+",
+  5:   "中级 Inter",
+  5.5: "中级+ Inter+",
+  6:   "中高 Upper-Inter",
+};
+function skillLabel(v) { return SKILL_LABELS[v] || SKILL_LABELS[Math.round(v*2)/2] || ""; }
+
+/* ═══════════════════════════════════════════════════════════
+   SHARED UI ATOMS
+═══════════════════════════════════════════════════════════ */
+const S = {
+  lbl:   { fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", opacity: 0.5 },
+  card:   { background: BG2, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" },
+  card2:  { background: BG3, border: `1px solid ${BORDER}`, borderRadius: 12 },
+  label:  { fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" },
+  text2:  {},
+  text3:  {},
+  btnGhost: { background: "rgba(0,0,0,0.06)", border: "none", borderRadius: 8, cursor: "pointer" },
+};
+
+
+const SB_URL = "https://uweqzglorvgyvjavkohr.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3ZXF6Z2xvcnZneXZqYXZrb2hyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMzM3OTEsImV4cCI6MjA4OTYwOTc5MX0.qKaWWlliSnRMtolPpw1G_KUPkSlkFk7M4BXhp99mH6A";
+
+async function sbFetch(path, options = {}) {
+  const res = await fetch(SB_URL + path, {
+    ...options,
+    headers: {
+      "apikey": SB_KEY,
+      "Authorization": "Bearer " + SB_KEY,
+      "Content-Type": "application/json",
+      "Prefer": "return=representation",
+      ...(options.headers || {}),
+    },
+  });
+  if (!res.ok) throw new Error(await res.text());
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+async function roomLoad(code) {
+  const data = await sbFetch(`/rest/v1/bmt_rooms?code=eq.${encodeURIComponent(code)}&select=players`);
+  return data && data.length > 0 ? data[0].players : null;
+}
+
+async function roomSave(code, players) {
+  await sbFetch(`/rest/v1/bmt_rooms`, {
+    method: "POST",
+    headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
+    body: JSON.stringify({ code, players, updated_at: new Date().toISOString() }),
+  });
+}
+// roomSave kept for backward compat
+
+function generateRoomCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+const SB_URL = "https://uweqzglorvgyvjavkohr.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3ZXF6Z2xvcnZneXZqYXZrb2hyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMzM3OTEsImV4cCI6MjA4OTYwOTc5MX0.qKaWWlliSnRMtolPpw1G_KUPkSlkFk7M4BXhp99mH6A";
+
+async function sbFetch(path, options = {}) {
+  const res = await fetch(SB_URL + path, {
+    ...options,
+    headers: {
+      "apikey": SB_KEY,
+      "Authorization": "Bearer " + SB_KEY,
+      "Content-Type": "application/json",
+      "Prefer": "return=representation",
+      ...(options.headers || {}),
+    },
+  });
+  if (!res.ok) throw new Error(await res.text());
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+async function roomLoad(code) {
+  const data = await sbFetch(`/rest/v1/bmt_rooms?code=eq.${encodeURIComponent(code)}&select=players`);
+  return data && data.length > 0 ? data[0].players : null;
+}
+
+async function roomSave(code, players) {
+  await sbFetch(`/rest/v1/bmt_rooms`, {
+    method: "POST",
+    headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
+    body: JSON.stringify({ code, players, updated_at: new Date().toISOString() }),
+  });
+}
+// roomSave kept for backward compat
+
+function generateRoomCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
 const SKILL_LABELS = {
   1:   "新手 Beginner",
   1.5: "新手+ Beginner+",
@@ -787,197 +888,25 @@ function SkillQuiz({ onDone, onClose }) {
 }
 
 
-
 function Chip({p, player}) {
   const pl = p || player;
-  const isMale = pl.gender === "M";
+  const m = pl.gender === "M";
   return (
     <span style={{
-      display:"inline-flex",alignItems:"center",gap:3,
-      padding:"2px 8px",borderRadius:999,fontSize:12,fontWeight:700,
-      background:isMale?SKY_L:ROSE_L,
-      border:`1px solid ${isMale?"rgba(2,132,199,0.30)":"rgba(225,29,72,0.25)"}`,
-    }} className={isMale?"c-sky":"c-rose"}>
-      {pl.name}{pl.borrowed?"★":""}
+      display:"inline-flex", alignItems:"center", gap:3,
+      padding:"2px 8px", borderRadius:999, fontSize:12, fontWeight:700,
+      background: m ? SKY_L : ROSE_L,
+      border: `1px solid ${m ? "rgba(2,132,199,0.30)" : "rgba(225,29,72,0.25)"}`,
+      color: m ? SKY : ROSE,
+    }}>
+      {pl.name}{pl.borrowed ? "★" : ""}
     </span>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   HISTORY-AWARE SCHEDULER
-═══════════════════════════════════════════════════════════ */
-function buildGcFromRounds(rds) {
-  const gc = {};
-  (rds||[]).forEach(r => r.forEach(m => [...m.teamA,...m.teamB].forEach(p => {
-    const b = baseId(p.id); gc[b] = (gc[b]||0) + 1;
-  })));
-  return gc;
-}
-
-function buildOpposedFromRounds(rds) {
-  const opposed = {}, teamed = {};
-  (rds||[]).forEach(r => r.forEach(m => {
-    const ap = m.teamA.map(p => baseId(p.id));
-    const bp = m.teamB.map(p => baseId(p.id));
-    if (ap.length===2) mInc(teamed, ap[0], ap[1]);
-    if (bp.length===2) mInc(teamed, bp[0], bp[1]);
-    for (const a of ap) for (const b of bp) mInc(opposed, a, b);
-  }));
-  return { opposed, teamed };
-}
-
-function schedWithHistory(players, mode, targetGames, opposedIn={}, teamedIn={}, gcIn={}) {
-  const ms = players.filter(p => p.gender==="M");
-  const fs = players.filter(p => p.gender==="F");
-  const allMatches = getAllMatches(mode, ms, fs);
-  if (!allMatches.length) return [];
-  // Clone history state so we don't mutate caller's objects
-  const opposed = {...opposedIn}, teamed = {...teamedIn}, gc = {...gcIn};
-  return runScheduleWithState(shuffle([...allMatches]), targetGames, opposed, teamed, gc);
-}
-
-function runScheduleWithState(allMatches, targetGames, opposed, teamed, gc) {
-  const remaining = [...allMatches];
-  const rounds = [];
-  const played = new Set();
-  while (remaining.length > 0) {
-    const eligible = remaining.filter(m =>
-      !played.has(matchFingerprint(m)) && !exceedsHardCap(m, gc, targetGames)
-    );
-    if (eligible.length === 0) break;
-    eligible.sort((x, y) => matchPriority(y, opposed, teamed, gc) - matchPriority(x, opposed, teamed, gc));
-    const used = new Set(), round = [], playedSet = new Set();
-    for (const pass of [0, 1]) {
-      for (const m of eligible) {
-        if (playedSet.has(m)) continue;
-        const ids = [...m.teamA, ...m.teamB].map(p => p.id);
-        if (ids.some(id => used.has(id))) continue;
-        if (pass === 0 && ids.some(id => gcGet(gc, id) >= targetGames + 1)) continue;
-        ids.forEach(id => used.add(id));
-        round.push(m); playedSet.add(m);
-        const ap = m.teamA.map(p => baseId(p.id)), bp = m.teamB.map(p => baseId(p.id));
-        if (ap.length===2) mInc(teamed, ap[0], ap[1]);
-        if (bp.length===2) mInc(teamed, bp[0], bp[1]);
-        for (const a of ap) for (const b of bp) mInc(opposed, a, b);
-        gcInc(gc, ids);
-        played.add(matchFingerprint(m));
-      }
-    }
-    for (let i = remaining.length-1; i >= 0; i--) {
-      if (playedSet.has(remaining[i])) remaining.splice(i, 1);
-    }
-    if (round.length === 0) break;
-    rounds.push(round);
-    if (rounds.length >= targetGames * 3) break;
-  }
-  return rounds;
-}
-
-
-function DashedSection({label, children}){
-  const lang = useLang();
-  const [open,setOpen]=useState(false);
-  return <div style={{margin:"4px 0"}}>
-    <div style={{display:"flex",alignItems:"center",gap:8}}>
-      <div style={{flex:1,borderTop:"2px dashed rgba(0,0,0,0.12)"}}/>
-      <button onClick={()=>setOpen(o=>!o)} style={{
-        fontSize:11,fontWeight:700,padding:"4px 12px",borderRadius:20,
-        background:open?EMERALD_L:GRAY_L,
-        border:`1px dashed ${open?EMERALD:"rgba(0,0,0,0.2)"}`,
-        cursor:"pointer",color:open?"#14532d":"rgba(0,0,0,0.45)",whiteSpace:"nowrap",
-        transition:"all 0.2s"
-      }>{open?(lang==="en"?"▲ Close":"▲ 收起"):label}</button>
-      <div style={{flex:1,borderTop:"2px dashed rgba(0,0,0,0.12)"}}/>
-    </div>
-    {open && <div style={{marginTop:10,animation:"fadeIn 0.2s"}}>{children}</div>}
-    <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}`}</style>
-  </div>;
-}
-
-/* ── PlayerPicker modal (remove players) ── */
-function PlayerPickerModal({title, players, onPick, onClose, multiSelect=false}){
-  const lang = useLang();
-  const [sel,setSel]=useState(new Set());
-  return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
-    onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{...S.card,padding:20,width:"100%",maxWidth:360,display:"flex",flexDirection:"column",gap:12,maxHeight:"80vh",overflow:"auto"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div style={{fontWeight:900,fontSize:16}}>{title}</div>
-        <button onClick={onClose} style={{width:28,height:28,borderRadius:"50%",background:"rgba(0,0,0,0.06)",border:"none",cursor:"pointer"}}>✕</button>
-      </div>
-      {players.map(p=>{
-        const selected=sel.has(p.id);
-        return <button key={p.id} onClick={()=>{
-          if(multiSelect){setSel(s=>{const n=new Set(s);n.has(p.id)?n.delete(p.id):n.add(p.id);return n;});}
-          else onPick(p);
-        }} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:12,
-          border:`1px solid ${selected?"rgba(22,163,74,.5)":BORDER}`,
-          background:selected?EMERALD_L:BG3,cursor:"pointer",textAlign:"left"}}>
-          <span style={{width:26,height:26,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
-            background:p.gender==="M"?SKY_L:ROSE_L,color:p.gender==="M"?SKY:ROSE,fontSize:10,fontWeight:900,flexShrink:0}}>{p.gender}</span>
-          <span style={{flex:1,fontWeight:600}}>{p.name}</span>
-          <span style={{fontSize:11,color:EMERALD}}>Lv{p.skill}</span>
-          {selected && <span style={{color:EMERALD}}>✓</span>}
-        </button>;
-      })}
-      {multiSelect && <button onClick={()=>onPick([...sel])} style={{width:"100%",padding:"11px 0",borderRadius:12,fontWeight:900,fontSize:14,border:"none",cursor:"pointer",background:EMERALD,color:"#fff"}}>{lang==="en"?"Confirm":lang==="zh"?"确认":"确认 Confirm"}</button>}
-    </div>
-  </div>;
-}
-
-/* ── NumPickerModal (add new players) ── */
-function NumPickerModal({title, onConfirm, onClose}){
-  const lang = useLang();
-  const [nM,sM]=useState(1),[nF,sF]=useState(1);
-  return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
-    onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{...S.card,padding:22,width:"100%",maxWidth:340,display:"flex",flexDirection:"column",gap:14}}>
-      <div style={{fontWeight:900,fontSize:16}}>{title}</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        {[{l:"新男生\nNew Males",v:nM,s:sM,bg:SKY_L,c:SKY},{l:"新女生\nNew Females",v:nF,s:sF,bg:ROSE_L,c:ROSE}].map(({l,v,s,bg,c})=>(
-          <div key={l} style={{background:bg,borderRadius:14,padding:12}}>
-            <div style={{fontSize:10,marginBottom:8,whiteSpace:"pre-line",lineHeight:1.4,opacity:.7}}>{l}</div>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <button onClick={()=>s(Math.max(0,v-1))} style={{width:28,height:28,borderRadius:6,background:"rgba(0,0,0,.07)",border:"none",fontSize:16,cursor:"pointer"}}>−</button>
-              <span style={{fontSize:26,fontWeight:900,color:c}}>{v}</span>
-              <button onClick={()=>s(Math.min(10,v+1))} style={{width:28,height:28,borderRadius:6,background:"rgba(0,0,0,.07)",border:"none",fontSize:16,cursor:"pointer"}}>+</button>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div style={{display:"flex",gap:10}}>
-        <button onClick={onClose} style={{flex:1,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)",fontWeight:700}}>{lang==="en"?"Cancel":lang==="zh"?"取消":"取消 Cancel"}</button>
-        <button onClick={()=>onConfirm(nM,nF)} style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:900}}>{lang==="en"?"Confirm":lang==="zh"?"确认":"确认 Confirm"}</button>
-      </div>
-    </div>
-  </div>;
-}
-
-/* ── ExtraRoundsModal ── */
-function ExtraRoundsModal({onConfirm, onClose}){
-  const lang = useLang();
-  const [n,setN]=useState(3);
-  return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
-    onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{...S.card,padding:22,width:"100%",maxWidth:320,display:"flex",flexDirection:"column",gap:14}}>
-      <div style={{fontWeight:900,fontSize:16}}>{lang==="en"?"➕ Add More Rounds":lang==="zh"?"➕ 继续加场":"➕ 继续加场 Add Rounds"}</div>
-      <div style={{fontSize:12,opacity:.6}}>{lang==="en"?"How many extra rounds to generate?":lang==="zh"?"在现有赛程后继续生成几轮？":"在现有赛程后继续加轮 Add more rounds"}</div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:16}}>
-        <button onClick={()=>setN(Math.max(1,n-1))} style={{width:40,height:40,borderRadius:10,background:"rgba(0,0,0,.07)",border:"none",fontSize:20,cursor:"pointer"}}>−</button>
-        <span style={{fontSize:36,fontWeight:900,color:EMERALD,width:50,textAlign:"center"}}>{n}</span>
-        <button onClick={()=>setN(Math.min(20,n+1))} style={{width:40,height:40,borderRadius:10,background:"rgba(0,0,0,.07)",border:"none",fontSize:20,cursor:"pointer"}}>+</button>
-      </div>
-      <div style={{display:"flex",gap:10}}>
-        <button onClick={onClose} style={{flex:1,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)",fontWeight:700}}>{lang==="en"?"Cancel":lang==="zh"?"取消":"取消 Cancel"}</button>
-        <button onClick={()=>onConfirm(n)} style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:900}}>生成 {n} 轮</button>
-      </div>
-    </div>
-  </div>;
-}
-
-/* ── ResultView ── */
 
 function TargetGamesInput({ value, onChange }) {
+  const lang = useLang();
   const lang = useLang();
   return (
     <div style={{ ...S.card, padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1234,8 +1163,106 @@ ${perPlayerRows ? `<h2>场次分布 Games Distribution · avg ${stats.avgGames} 
   );
 }
 
+
+function DashedSection({label, children}){
+  const [open,setOpen]=useState(false);
+  return <div style={{margin:"4px 0"}}>
+    <div style={{display:"flex",alignItems:"center",gap:8}}>
+      <div style={{flex:1,borderTop:"2px dashed rgba(0,0,0,0.12)"}}/>
+      <button onClick={()=>setOpen(o=>!o)} style={{
+        fontSize:11,fontWeight:700,padding:"4px 12px",borderRadius:20,
+        background:open?EMERALD_L:GRAY_L,
+        border:`1px dashed ${open?EMERALD:"rgba(0,0,0,0.2)"}`,
+        cursor:"pointer",color:open?"#14532d":"rgba(0,0,0,0.45)",whiteSpace:"nowrap",
+        transition:"all 0.2s"
+      }}>{open?"▲ 收起":label}</button>
+      <div style={{flex:1,borderTop:"2px dashed rgba(0,0,0,0.12)"}}/>
+    </div>
+    {open && <div style={{marginTop:10,animation:"fadeIn 0.2s"}}>{children}</div>}
+    <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}`}</style>
+  </div>;
+}
+
+/* ── PlayerPicker modal (remove players) ── */
+function PlayerPickerModal({title, players, onPick, onClose, multiSelect=false}){
+  const [sel,setSel]=useState(new Set());
+  return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
+    onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{...S.card,padding:20,width:"100%",maxWidth:360,display:"flex",flexDirection:"column",gap:12,maxHeight:"80vh",overflow:"auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{fontWeight:900,fontSize:16}}>{title}</div>
+        <button onClick={onClose} style={{width:28,height:28,borderRadius:"50%",background:"rgba(0,0,0,0.06)",border:"none",cursor:"pointer"}}>✕</button>
+      </div>
+      {players.map(p=>{
+        const selected=sel.has(p.id);
+        return <button key={p.id} onClick={()=>{
+          if(multiSelect){setSel(s=>{const n=new Set(s);n.has(p.id)?n.delete(p.id):n.add(p.id);return n;});}
+          else onPick(p);
+        }} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:12,
+          border:`1px solid ${selected?"rgba(22,163,74,.5)":BORDER}`,
+          background:selected?EMERALD_L:BG3,cursor:"pointer",textAlign:"left"}}>
+          <span style={{width:26,height:26,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
+            background:p.gender==="M"?SKY_L:ROSE_L,color:p.gender==="M"?SKY:ROSE,fontSize:10,fontWeight:900,flexShrink:0}}>{p.gender}</span>
+          <span style={{flex:1,fontWeight:600}}>{p.name}</span>
+          <span style={{fontSize:11,color:EMERALD}}>Lv{p.skill}</span>
+          {selected && <span style={{color:EMERALD}}>✓</span>}
+        </button>;
+      })}
+      {multiSelect && <button onClick={()=>onPick([...sel])} style={{width:"100%",padding:"11px 0",borderRadius:12,fontWeight:900,fontSize:14,border:"none",cursor:"pointer",background:EMERALD,color:"#fff"}}>确认</button>}
+    </div>
+  </div>;
+}
+
+/* ── NumPickerModal (add new players) ── */
+function NumPickerModal({title, onConfirm, onClose}){
+  const [nM,sM]=useState(1),[nF,sF]=useState(1);
+  return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
+    onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{...S.card,padding:22,width:"100%",maxWidth:340,display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{fontWeight:900,fontSize:16}}>{title}</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        {[{l:"新男生\nNew Males",v:nM,s:sM,bg:SKY_L,c:SKY},{l:"新女生\nNew Females",v:nF,s:sF,bg:ROSE_L,c:ROSE}].map(({l,v,s,bg,c})=>(
+          <div key={l} style={{background:bg,borderRadius:14,padding:12}}>
+            <div style={{fontSize:10,marginBottom:8,whiteSpace:"pre-line",lineHeight:1.4,opacity:.7}}>{l}</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <button onClick={()=>s(Math.max(0,v-1))} style={{width:28,height:28,borderRadius:6,background:"rgba(0,0,0,.07)",border:"none",fontSize:16,cursor:"pointer"}}>−</button>
+              <span style={{fontSize:26,fontWeight:900,color:c}}>{v}</span>
+              <button onClick={()=>s(Math.min(10,v+1))} style={{width:28,height:28,borderRadius:6,background:"rgba(0,0,0,.07)",border:"none",fontSize:16,cursor:"pointer"}}>+</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:"flex",gap:10}}>
+        <button onClick={onClose} style={{flex:1,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)",fontWeight:700}}>取消</button>
+        <button onClick={()=>onConfirm(nM,nF)} style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:900}}>确认</button>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ── ExtraRoundsModal ── */
+function ExtraRoundsModal({onConfirm, onClose}){
+  const [n,setN]=useState(3);
+  return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
+    onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{...S.card,padding:22,width:"100%",maxWidth:320,display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{fontWeight:900,fontSize:16}}>➕ 继续加场</div>
+      <div style={{fontSize:12,opacity:.6}}>在现有赛程后继续生成几轮？</div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:16}}>
+        <button onClick={()=>setN(Math.max(1,n-1))} style={{width:40,height:40,borderRadius:10,background:"rgba(0,0,0,.07)",border:"none",fontSize:20,cursor:"pointer"}}>−</button>
+        <span style={{fontSize:36,fontWeight:900,color:EMERALD,width:50,textAlign:"center"}}>{n}</span>
+        <button onClick={()=>setN(Math.min(20,n+1))} style={{width:40,height:40,borderRadius:10,background:"rgba(0,0,0,.07)",border:"none",fontSize:20,cursor:"pointer"}}>+</button>
+      </div>
+      <div style={{display:"flex",gap:10}}>
+        <button onClick={onClose} style={{flex:1,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)",fontWeight:700}}>取消</button>
+        <button onClick={()=>onConfirm(n)} style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:900}}>生成 {n} 轮</button>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ── ResultView ── */
 function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, onRemovePlayers, onMoreRounds, isOwner}){
-  const lang = useLang();
   const [open,setOpen]=useState(0);
   const [addModal,setAddModal]=useState(null);   // afterRound index
   const [removeModal,setRemoveModal]=useState(null); // afterRound index
@@ -1250,9 +1277,9 @@ function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, o
 
     {/* Stats */}
     <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
-      <div style={S.lbl}>{lang==="en"?"Schedule Stats":lang==="zh"?"赛程统计":"赛程统计 Stats"}</div>
+      <div style={S.lbl}>赛程统计 Stats</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-        {[{l:lang==="en"?"Rounds":lang==="zh"?"总轮次":"总轮次 Rounds",v:rounds.length,c:SKY},{l:lang==="en"?"Matches":lang==="zh"?"总场次":"总场次 Matches",v:total,c:VIOLET},{l:lang==="en"?"Done":lang==="zh"?"已完成":"已完成 Done",v:`${done}/${total}`,c:EMERALD}]}.map(s=>(
+        {[{l:"总轮次",v:rounds.length,c:SKY},{l:"总场次",v:total,c:VIOLET},{l:"已完成",v:`${done}/${total}`,c:EMERALD}].map(s=>(
           <div key={s.l} style={{...S.card2,padding:10,textAlign:"center"}}>
             <div style={{fontSize:22,fontWeight:900,color:s.c}}>{s.v}</div>
             <div style={{fontSize:9,marginTop:2,opacity:.6}}>{s.l}</div>
@@ -1263,8 +1290,8 @@ function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, o
 
     {/* Header */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"0 4px"}}>
-      <div style={S.lbl}>{lang==="en"?"Full Schedule":lang==="zh"?"完整赛程":"完整赛程 Full Schedule"}</div>
-      {isOwner && onRegen && <button onClick={onRegen} style={{fontSize:11,background:"none",border:"none",cursor:"pointer",color:EMERALD,fontWeight:500}}>{lang==="en"?"↻ Regenerate":lang==="zh"?"↻ 重新生成":"↻ 重新生成 Regen"}</button>}
+      <div style={S.lbl}>完整赛程 Full Schedule</div>
+      {isOwner && onRegen && <button onClick={onRegen} style={{fontSize:11,background:"none",border:"none",cursor:"pointer",color:EMERALD,fontWeight:500}}>↻ 重新生成</button>}
     </div>
 
     {rounds.map((round,ri)=>{
@@ -1280,8 +1307,8 @@ function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, o
               border:`1px solid ${roundDone?EMERALD:"rgba(22,163,74,.3)"}`}}>
               {roundDone?"✓":ri+1}
             </span>
-            <span style={{flex:1,fontSize:14,fontWeight:700,color:roundDone?"#14532d":"inherit"}}>{lang==="en"?`Round ${ri+1}`:lang==="zh"?`第 ${ri+1} 轮`:`第 ${ri+1} 轮 Round ${ri+1}`}</span>
-            <span style={{fontSize:11,opacity:.5}}>{round.filter((_,mi)=>checked[`${ri}-${mi}`]).length}/{lang==="en"?round.length+" matches":lang==="zh"?round.length+" 场":round.length+" 场"}</span>
+            <span style={{flex:1,fontSize:14,fontWeight:700,color:roundDone?"#14532d":"inherit"}}>第 {ri+1} 轮 Round {ri+1}</span>
+            <span style={{fontSize:11,opacity:.5}}>{round.filter((_,mi)=>checked[`${ri}-${mi}`]).length}/{round.length} 场</span>
             <span style={{fontSize:12}}>{open===ri?"▲":"▼"}</span>
           </button>
           {open===ri && <div style={{padding:"8px 10px 10px",display:"flex",flexDirection:"column",gap:6}}>
@@ -1312,23 +1339,23 @@ function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, o
 
         {/* Dashed section between rounds */}
         <div style={{display:"flex",flexDirection:"column",gap:6,margin:"4px 0 6px"}}>
-          <DashedSection label=lang==="en"?"+ New Players":lang==="zh"?"+ 有新人加入":"+ 有新人加入 New Players">
+          <DashedSection label="+ 有新人加入">
             <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
               <div style={{fontSize:12,opacity:.6}}>第 {ri+1} 轮后加入新选手，接下来赛程将更新</div>
-              <button onClick={()=>setAddModal(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:700}}>{lang==="en"?"Select number of new players":lang==="zh"?"选择加入人数":"选择加入人数 Select count"}</button>
+              <button onClick={()=>setAddModal(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:700}}>选择加入人数</button>
             </div>
           </DashedSection>
-          <DashedSection label=lang==="en"?"− Players Leaving":lang==="zh"?"− 有人离开":"− 有人离开 Leaving">
+          <DashedSection label="− 有人离开">
             <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
               <div style={{fontSize:12,opacity:.6}}>第 {ri+1} 轮后移除选手，接下来赛程将更新</div>
               <button onClick={()=>setRemoveModal({ri, players:[{id:"p1",name:"张三",gender:"M",skill:3},{id:"p2",name:"李四",gender:"F",skill:2},{id:"p3",name:"王五",gender:"M",skill:4}]})}
-                style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:ROSE_L,color:ROSE,fontWeight:700}}>{lang==="en"?"Select players to remove":lang==="zh"?"选择要离开的人":"选择要离开的人 Select to remove"}</button>
+                style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:ROSE_L,color:ROSE,fontWeight:700}}>选择要离开的人</button>
             </div>
           </DashedSection>
-          <DashedSection label=lang==="en"?"➕ Add More Rounds":lang==="zh"?"➕ 继续加场":"➕ 继续加场 Add Rounds">
+          <DashedSection label="➕ 继续加场">
             <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
               <div style={{fontSize:12,opacity:.6}}>在第 {ri+1} 轮后继续增加轮次</div>
-              <button onClick={()=>setMoreModal(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:AMBER_L,color:AMBER,fontWeight:700}}>{lang==="en"?"Select number of extra rounds":lang==="zh"?"选择加场数量":"选择加场数量 Select count"}</button>
+              <button onClick={()=>setMoreModal(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:AMBER_L,color:AMBER,fontWeight:700}}>选择加场数量</button>
             </div>
           </DashedSection>
         </div>
@@ -1339,7 +1366,6 @@ function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, o
 
 /* ── BasicPanel ── */
 function BasicPanel(){
-  const lang = useLang();
   const MODES=[{id:"mixed",label:"混合双打",en:"Mixed Doubles",icon:"⚡"},{id:"mens_doubles",label:"男子双打",en:"Men's Doubles",icon:"💪"},{id:"womens_doubles",label:"女子双打",en:"Women's Doubles",icon:"🌸"},{id:"mens_singles",label:"男子单打",en:"Men's Singles",icon:"🔥"},{id:"womens_singles",label:"女子单打",en:"Women's Singles",icon:"✨"}];
   const [numM,setM]=useState(4),[numF,setF]=useState(4),[mode,setMode]=useState("mixed"),[tgt,setTgt]=useState(5);
   const [rounds,setRounds]=useState(null),[checked,setChecked]=useState({}),[pool,setPool]=useState([]);
@@ -1351,27 +1377,27 @@ function BasicPanel(){
   function addPlayers(ri,nM,nF){
     const kept=(rounds||[]).slice(0,ri+1);
     // Build gc from kept rounds
-    const gc=buildGcFromRounds(kept);
+    const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
     const pm=pool.filter(p=>p.gender==="M").length,pf=pool.filter(p=>p.gender==="F").length;
     const np=mkPlayers(pm+nM,pf+nF);setPool(np);
     setRounds([...kept,...schedWithHistory(np,mode,tgt,{},{},gc)]);
   }
   function removePlayer(ri,ids){
     const kept=(rounds||[]).slice(0,ri+1);
-    const gc=buildGcFromRounds(kept);
+    const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
     const np=pool.filter(p=>!ids.includes(p.id));setPool(np);
     setRounds([...kept,...schedWithHistory(np,mode,tgt,{},{},gc)]);
   }
   function moreRounds(ri,n){
     const kept=(rounds||[]).slice(0,ri+1);
-    const gc=buildGcFromRounds(kept);
+    const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
     setRounds([...kept,...schedWithHistory(pool,mode,n,{},{},gc)]);
   }
   const ok=mode==="mixed"?(numM>=1&&numF>=1):(needM?numM>=2:true)&&(needF?numF>=2:true);
   return <div style={{display:"flex",flexDirection:"column",gap:14}}>
     <div style={{display:"grid",gridTemplateColumns:needM&&needF?"1fr 1fr":"1fr",gap:12}}>
       {needM&&<div style={{background:SKY_L,border:"1px solid rgba(2,132,199,.25)",borderRadius:16,padding:14}}>
-        <div style={{fontSize:11,marginBottom:10,opacity:.7,whiteSpace:"pre-line",lineHeight:1.4}}>{lang==="en"?"Male Players":lang==="zh"?"男生人数":"男生人数\nMale Players"}</div>
+        <div style={{fontSize:11,marginBottom:10,opacity:.7,whiteSpace:"pre-line",lineHeight:1.4}}>{"男生人数\nMale Players"}</div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <button onClick={()=>setM(Math.max(0,numM-1))} style={{width:32,height:32,borderRadius:8,background:"rgba(0,0,0,.07)",border:"none",fontSize:18,cursor:"pointer"}}>−</button>
           <span style={{fontSize:36,fontWeight:900,color:SKY}}>{numM}</span>
@@ -1379,7 +1405,7 @@ function BasicPanel(){
         </div>
       </div>}
       {needF&&<div style={{background:ROSE_L,border:"1px solid rgba(225,29,72,.25)",borderRadius:16,padding:14}}>
-        <div style={{fontSize:11,marginBottom:10,opacity:.7,whiteSpace:"pre-line",lineHeight:1.4}}>{lang==="en"?"Female Players":lang==="zh"?"女生人数":"女生人数\nFemale Players"}</div>
+        <div style={{fontSize:11,marginBottom:10,opacity:.7,whiteSpace:"pre-line",lineHeight:1.4}}>{"女生人数\nFemale Players"}</div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <button onClick={()=>setF(Math.max(0,numF-1))} style={{width:32,height:32,borderRadius:8,background:"rgba(0,0,0,.07)",border:"none",fontSize:18,cursor:"pointer"}}>−</button>
           <span style={{fontSize:36,fontWeight:900,color:ROSE}}>{numF}</span>
@@ -1388,7 +1414,7 @@ function BasicPanel(){
       </div>}
     </div>
     <div style={{...S.card,padding:14,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-      <div><div style={{fontSize:14,fontWeight:700}}>{lang==="en"?"Target Games/Person":lang==="zh"?"人均场次目标":"人均场次目标"}</div><div style={{fontSize:10,opacity:.5}}>{lang==="zh"?"":lang==="en"?"Target games per person":"Target games per person"}</div></div>
+      <div><div style={{fontSize:14,fontWeight:700}}>人均场次目标</div><div style={{fontSize:10,opacity:.5}}>Target games per person</div></div>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
         <button onClick={()=>setTgt(Math.max(1,tgt-1))} style={{width:30,height:30,borderRadius:8,background:"rgba(0,0,0,.07)",border:"none",fontSize:16,cursor:"pointer"}}>−</button>
         <span style={{fontSize:24,fontWeight:900,color:AMBER,width:32,textAlign:"center"}}>{tgt}</span>
@@ -1396,186 +1422,76 @@ function BasicPanel(){
       </div>
     </div>
     <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:8}}>
-      <div style={S.lbl}>{lang==="en"?"Game Mode":lang==="zh"?"比赛模式":"比赛模式 Game Mode"}</div>
+      <div style={S.lbl}>比赛模式 Game Mode</div>
       {MODES.map(m=>{const active=mode===m.id;return <button key={m.id} onClick={()=>{setMode(m.id);setRounds(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:12,border:`1px solid ${active?"rgba(22,163,74,.45)":"rgba(0,0,0,.07)"}`,background:active?EMERALD_L:"rgba(0,0,0,.03)",width:"100%",textAlign:"left",cursor:"pointer",color:active?"#14532d":"rgba(17,26,17,.6)"}}>
         <span style={{fontSize:16}}>{m.icon}</span>
         <div style={{flex:1}}><div style={{fontWeight:700,fontSize:13}}>{m.label}</div><div style={{fontSize:10,opacity:.5}}>{m.en}</div></div>
         {active&&<span style={{color:EMERALD}}>✓</span>}
       </button>;})}
     </div>
-    <button onClick={gen} disabled={!ok} style={{width:"100%",padding:"14px 0",borderRadius:16,fontWeight:900,fontSize:14,background:ok?EMERALD:"rgba(0,0,0,.05)",border:"none",cursor:ok?"pointer":"not-allowed",color:ok?"#fff":"rgba(0,0,0,.25)"}}>{lang==="en"?"🏸 Generate Schedule":lang==="zh"?"🏸 生成赛程":"🏸 生成赛程 Generate Schedule"}</button>
+    <button onClick={gen} disabled={!ok} style={{width:"100%",padding:"14px 0",borderRadius:16,fontWeight:900,fontSize:14,background:ok?EMERALD:"rgba(0,0,0,.05)",border:"none",cursor:ok?"pointer":"not-allowed",color:ok?"#fff":"rgba(0,0,0,.25)"}}>🏸 生成赛程 Generate Schedule</button>
     {rounds&&<ResultView rounds={rounds} mode={mode} checked={checked} setChecked={setChecked} onRegen={gen} onAddPlayers={addPlayers} onRemovePlayers={removePlayer} onMoreRounds={moreRounds} isOwner={true}/>}
   </div>;
 }
 
 /* ── AdvancedPanel ── */
 function AdvancedPanel(){
-  const lang = useLang();
   const [screen,setScreen]=useState("join"),[input,setInput]=useState(""),[code,setCode]=useState("");
   const [isOwner,setIsOwner]=useState(false);
   const [players,setPlayers]=useState([]),[tab,setTab]=useState("roster");
   const [form,setForm]=useState({name:"",gender:"M",skill:3});
   const [rounds,setRounds]=useState(null),[checked,setChecked]=useState({});
   const [sync,setSync]=useState("");
-  const [targetGames,setTargetGames]=useState(5);
-  const [matchMode,setMatchMode]=useState("random");
-  const [gameMode,setGameMode]=useState("mixed");
-  const [myId]=useState(()=>{
-    try { let id=localStorage.getItem("bmt_uid"); if(!id){id=uid();localStorage.setItem("bmt_uid",id);} return id; } catch { return uid(); }
-  });
-  // ownerIdRef holds the room's owner_id — NEVER changes except on explicit transfer
-  const ownerIdRef = useRef(null);
-
-  // Restore room on mount
-  useEffect(()=>{
-    try {
-      const saved=localStorage.getItem("bmt_room_code");
-      if(saved){ setInput(saved); joinRoom(saved, localStorage.getItem("bmt_room_owner")==="1"); }
-    } catch {}
-  }, []);
+  const [myId]=useState(()=>uid()); // simulate current user id
   const ms=players.filter(p=>p.gender==="M"),fs=players.filter(p=>p.gender==="F");
 
-  async function saveRoomState(newPlayers, newRounds, explicitNewOwner, roomCodeOverride) {
-    const activeCode = roomCodeOverride || code;
-    if(!activeCode) return;
-    setSync("同步中…");
-    const ownerToSave = explicitNewOwner || ownerIdRef.current || myId;
-    try {
-      await sbFetch(`/rest/v1/bmt_rooms`, {
-        method:"POST",
-        headers:{"Prefer":"resolution=merge-duplicates,return=representation"},
-        body:JSON.stringify({
-          code: activeCode,
-          players: newPlayers,
-          schedule: newRounds ? {rounds:newRounds, ts:Date.now()} : null,
-          owner_id: ownerToSave,
-          updated_at: new Date().toISOString(),
-        }),
-      });
-      setSync("✓ 已同步");
-    } catch { setSync("⚠ 同步失败"); }
-    setTimeout(()=>setSync(""),2500);
-  }
-
-  // Poll every 4 seconds for updates
-  useEffect(()=>{
-    if(!code) return;
-    const poll = async () => {
-      try {
-        const data = await sbFetch(`/rest/v1/bmt_rooms?code=eq.${encodeURIComponent(code)}&select=players,schedule,owner_id`);
-        if(!data||!data[0]) return;
-        const row = data[0];
-        if(row.players) setPlayers(row.players);
-        if(row.schedule?.rounds) setRounds(row.schedule.rounds);
-        if(row.owner_id) {
-          ownerIdRef.current = row.owner_id;
-          setIsOwner(row.owner_id === myId);
-        }
-      } catch {}
-    };
-    poll();
-    const iv = setInterval(poll, 4000);
-    return ()=>clearInterval(iv);
-  }, [code]);
-
+  function showSync(){setSync("✓ 已同步");setTimeout(()=>setSync(""),2500);}
   function addP(){
     if(!form.name.trim())return;
-    const newP={id:uid(),name:form.name.trim(),gender:form.gender,skill:form.skill,addedBy:myId};
-    const np=[...players,newP];
-    setPlayers(np);
+    setPlayers(p=>[...p,{id:uid(),name:form.name.trim(),gender:form.gender,skill:form.skill,addedBy:myId}]);
     setForm(f=>({...f,name:"",skill:3}));
-    saveRoomState(np, rounds);
+    showSync();
   }
-  function delP(id){
-    const np=players.filter(x=>x.id!==id);
-    setPlayers(np);
-    saveRoomState(np, rounds);
-  }
-
-  // buildGcFromRounds is defined globally above
-
+  function delP(id){setPlayers(ps=>ps.filter(x=>x.id!==id));showSync();}
   function gen(){
     if(!isOwner)return;
-    const allM = getAllMatches(gameMode, ms, fs);
-    if(!allM.length) return;
-    const newRounds = matchMode==="balanced"
-      ? scheduleBalanced(allM, targetGames)
-      : scheduleRoundRobin(allM, targetGames);
-    setRounds(newRounds);setChecked({});setTab("schedule");
-    saveRoomState(players, newRounds);
+    setRounds(schedWithHistory(players,"mixed",5));setChecked({});setTab("schedule");showSync();
   }
   function addPlayers(ri,nM,nF){
     if(!isOwner)return;
     const kept=(rounds||[]).slice(0,ri+1);
-    const gc=buildGcFromRounds(kept);
-    const {opposed,teamed}=buildOpposedFromRounds(kept);
+    const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
     const nm=[...ms,...Array.from({length:nM},(_,i)=>({id:uid(),name:`新男${i+1}`,gender:"M",skill:3,addedBy:myId}))];
     const nf=[...fs,...Array.from({length:nF},(_,i)=>({id:uid(),name:`新女${i+1}`,gender:"F",skill:3,addedBy:myId}))];
-    const np=[...nm,...nf]; setPlayers(np);
-    const newRounds=[...kept,...schedWithHistory(np,gameMode,targetGames,opposed,teamed,gc)];
-    setRounds(newRounds);
-    saveRoomState(np, newRounds);
+    setPlayers([...nm,...nf]);
+    setRounds([...kept,...schedWithHistory([...nm,...nf],"mixed",5,{},{},gc)]);
+    showSync();
   }
   function removePlayer(ri,ids){
     if(!isOwner)return;
     const kept=(rounds||[]).slice(0,ri+1);
-    const gc=buildGcFromRounds(kept);
-    const {opposed,teamed}=buildOpposedFromRounds(kept);
-    const np=players.filter(p=>!ids.includes(p.id)); setPlayers(np);
-    const newRounds=[...kept,...schedWithHistory(np,gameMode,targetGames,opposed,teamed,gc)];
-    setRounds(newRounds);
-    saveRoomState(np, newRounds);
+    const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
+    const np=players.filter(p=>!ids.includes(p.id));
+    setPlayers(np);setRounds([...kept,...schedWithHistory(np,"mixed",5,{},{},gc)]);showSync();
   }
   function moreRounds(ri,n){
     if(!isOwner)return;
     const kept=(rounds||[]).slice(0,ri+1);
-    const gc=buildGcFromRounds(kept);
-    const {opposed,teamed}=buildOpposedFromRounds(kept);
-    const newRounds=[...kept,...schedWithHistory(players,gameMode,n,opposed,teamed,gc)];
-    setRounds(newRounds);
-    saveRoomState(players, newRounds);
-  }
-  function transferOwner(newOwnerId){
-    ownerIdRef.current = newOwnerId;
-    setIsOwner(false);
-    saveRoomState(players, rounds, newOwnerId);
-  }
-
-  async function joinRoom(c, asOwner){
-    const code2=c.trim().toUpperCase();
-    if(!code2)return;
-    try {
-      const data = await sbFetch(`/rest/v1/bmt_rooms?code=eq.${encodeURIComponent(code2)}&select=players,schedule,owner_id`);
-      if(data&&data[0]){
-        if(data[0].players) setPlayers(data[0].players);
-        if(data[0].schedule?.rounds) setRounds(data[0].schedule.rounds);
-        const existOwner = data[0].owner_id;
-        ownerIdRef.current = existOwner || (asOwner ? myId : null);
-        setIsOwner(asOwner || existOwner===myId);
-      } else {
-        // New room — I am the owner
-        ownerIdRef.current = myId;
-        // Pass code2 directly since setCode hasn't taken effect yet
-        await saveRoomState([], null, myId, code2);
-        setIsOwner(true);
-      }
-    } catch { setIsOwner(asOwner); }
-    setCode(code2);
-    try { localStorage.setItem("bmt_room_code",code2); localStorage.setItem("bmt_room_owner",asOwner?"1":"0"); } catch {}
-    setScreen("room");
+    const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
+    setRounds([...kept,...schedWithHistory(players,"mixed",n,{},{},gc)]);showSync();
   }
 
   if(screen==="join") return (
     <div style={{...S.card,padding:24,display:"flex",flexDirection:"column",gap:14,textAlign:"center"}}>
       <div style={{fontSize:36}}>🏸</div>
-      <div><div style={{fontWeight:900,fontSize:18,marginBottom:4}}>{lang==="en"?"Join or Create a Room":lang==="zh"?"加入或创建房间":"加入或创建房间 Join / Create Room"}</div>
-        <div style={{fontSize:12,opacity:.5}}>{lang==="en"?"All room members share roster and schedule in real time":lang==="zh"?"同一房间共享球员名单和赛程，实时同步":"同一房间共享球员名单 Share roster in real time"}</div></div>
+      <div><div style={{fontWeight:900,fontSize:18,marginBottom:4}}>加入或创建房间</div>
+        <div style={{fontSize:12,opacity:.5}}>同一房间共享球员名单和赛程，实时同步</div></div>
       <input value={input} onChange={e=>setInput(e.target.value.toUpperCase())} placeholder="输入房间码 e.g. ABC123"
         style={{background:BG3,border:`1px solid ${BORDER}`,borderRadius:12,padding:"12px 16px",fontSize:18,fontWeight:900,letterSpacing:4,textAlign:"center",outline:"none",width:"100%"}}/>
-      <button onClick={()=>joinRoom(input,false)}
-        style={{width:"100%",padding:"13px 0",borderRadius:12,fontWeight:900,fontSize:15,background:input.trim()?EMERALD:"rgba(0,0,0,.1)",border:"none",cursor:"pointer",color:input.trim()?"#fff":"rgba(0,0,0,.3)"}}>{lang==="en"?"Join Room":lang==="zh"?"加入房间":"加入房间 Join Room"}</button>
-      <button onClick={()=>{const c="BMT-"+Math.random().toString(36).slice(2,6).toUpperCase();joinRoom(c,true);}}
-        style={{width:"100%",padding:"13px 0",borderRadius:12,fontWeight:900,fontSize:15,background:"rgba(0,0,0,.06)",border:"none",cursor:"pointer"}}>{lang==="en"?"✨ Create New Room (You are Host)":lang==="zh"?"✨ 创建新房间（你是房主）":"✨ 创建新房间 Create New Room"}</button>
+      <button onClick={()=>{setCode(input||"DEMO01");setIsOwner(false);setScreen("room");}}
+        style={{width:"100%",padding:"13px 0",borderRadius:12,fontWeight:900,fontSize:15,background:input.trim()?EMERALD:"rgba(0,0,0,.1)",border:"none",cursor:"pointer",color:input.trim()?"#fff":"rgba(0,0,0,.3)"}}>加入房间 Join Room</button>
+      <button onClick={()=>{const c="BMT-"+Math.random().toString(36).slice(2,6).toUpperCase();setCode(c);setInput(c);setIsOwner(true);setScreen("room");}}
+        style={{width:"100%",padding:"13px 0",borderRadius:12,fontWeight:900,fontSize:15,background:"rgba(0,0,0,.06)",border:"none",cursor:"pointer"}}>✨ 创建新房间（你是房主）</button>
     </div>
   );
 
@@ -1584,49 +1500,46 @@ function AdvancedPanel(){
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:EMERALD_L,border:"1px solid rgba(22,163,74,.25)",borderRadius:12,padding:"10px 14px"}}>
       <div>
         <div style={{fontSize:10,fontWeight:700,letterSpacing:2,opacity:.6,textTransform:"uppercase"}}>
-          {lang==="en"?"ROOM CODE":"房间码"} · {isOwner?"👑 房主 Host":"成员 Member"}
-        </div>
-        <div style={{fontSize:9,opacity:.4,letterSpacing:1,marginTop:2}}>
-          ID: {myId.slice(0,6)} {isOwner?"(房主 Host)":""}
+          房间码 · {isOwner?"👑 你是房主":"成员"}
         </div>
         <div style={{fontSize:20,fontWeight:900,letterSpacing:4,color:EMERALD}}>{code}</div>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:6}}>
         {sync&&<span style={{fontSize:10,color:EMERALD}}>{sync}</span>}
-        <button style={{fontSize:11,fontWeight:700,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:"rgba(22,163,74,.15)",color:"#14532d"}}>{lang==="en"?"Copy":lang==="zh"?"复制":"复制 Copy"}</button>
-        {isOwner&&<button onClick={()=>{ const id=window.prompt("输入新房主的用户ID（让对方告诉你）:\n新房主ID:"); if(id) transferOwner(id.trim()); }} style={{fontSize:11,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:AMBER_L,color:AMBER,fontWeight:700}}>{lang==="en"?"👑 Transfer":lang==="zh"?"👑转让":"👑转让 Transfer"}</button>}
-        <button onClick={()=>setScreen("join")} style={{fontSize:11,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)"}}>{lang==="en"?"Leave":lang==="zh"?"退出":"退出 Leave"}</button>
+        <button style={{fontSize:11,fontWeight:700,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:"rgba(22,163,74,.15)",color:"#14532d"}}>复制</button>
+        {isOwner&&<button style={{fontSize:11,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:AMBER_L,color:AMBER,fontWeight:700}} title="转让房主">👑转让</button>}
+        <button onClick={()=>setScreen("join")} style={{fontSize:11,padding:"5px 8px",borderRadius:8,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)"}}>退出</button>
       </div>
     </div>
 
     {/* Sub-tabs */}
     <div style={{display:"flex",gap:4,background:"rgba(0,0,0,.04)",padding:4,borderRadius:14,border:`1px solid ${BORDER}`}}>
-      {[["roster",lang==="en"?`Roster (${players.length})`:lang==="zh"?`名册 (${players.length})`:`名册 Roster (${players.length})`],["schedule",lang==="en"?`Schedule${rounds?" ✓":""}`:lang==="zh"?"赛程安排":"赛程安排 Schedule"]].map(([id,l])=>(
+      {[["roster",`名册 (${players.length})`],["schedule","赛程安排"]].map(([id,l])=>(
         <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"8px 0",borderRadius:10,fontSize:13,fontWeight:700,border:"none",cursor:"pointer",background:tab===id?EMERALD:"transparent",color:tab===id?"#fff":"rgba(17,26,17,.45)"}}>{l}</button>
       ))}
     </div>
 
     {tab==="roster"&&<div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
-      <div style={S.lbl}>{lang==="en"?"Add Player":lang==="zh"?"添加球员":"添加球员 Add Player"}</div>
+      <div style={S.lbl}>添加球员 Add Player</div>
       <div style={{display:"flex",gap:8}}>
-        <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addP()} placeholder={lang==="en"?"Player name":lang==="zh"?"球员名字":"球员名字 Player name"}
+        <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addP()} placeholder="球员名字"
           style={{flex:1,background:BG3,border:`1px solid ${BORDER}`,borderRadius:12,padding:"10px 12px",fontSize:14,outline:"none"}}/>
         <div style={{display:"flex",borderRadius:12,overflow:"hidden",border:`1px solid ${BORDER}`}}>
-          {["M","F"].map(g=><button key={g} onClick={()=>setForm(f=>({...f,gender:g}))} style={{padding:"8px 12px",fontSize:13,fontWeight:700,border:"none",cursor:"pointer",background:form.gender===g?(g==="M"?"#0ea5e9":"#f43f5e"):"rgba(0,0,0,.04)",color:form.gender===g?"#fff":"rgba(17,26,17,.5)"}}>{g==="M"?(lang==="en"?"M":lang==="zh"?"男":"男 M"):(lang==="en"?"F":lang==="zh"?"女":"女 F")}</button>)}
+          {["M","F"].map(g=><button key={g} onClick={()=>setForm(f=>({...f,gender:g}))} style={{padding:"8px 12px",fontSize:13,fontWeight:700,border:"none",cursor:"pointer",background:form.gender===g?(g==="M"?"#0ea5e9":"#f43f5e"):"rgba(0,0,0,.04)",color:form.gender===g?"#fff":"rgba(17,26,17,.5)"}}>{g==="M"?"男":"女"}</button>)}
         </div>
       </div>
       <div>
-        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6}}><span style={{opacity:.5}}>{lang==="en"?"Skill Level":lang==="zh"?"技术水平":"技术水平 Skill"}</span><span style={{fontWeight:700}}>Lv{form.skill}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6}}><span style={{opacity:.5}}>技术水平</span><span style={{fontWeight:700}}>Lv{form.skill}</span></div>
         <input type="range" min={2} max={12} step={1} value={form.skill*2} onChange={e=>setForm(f=>({...f,skill:+e.target.value/2}))} style={{width:"100%",accentColor:EMERALD}}/>
-        <button style={{width:"100%",marginTop:6,padding:"8px 0",borderRadius:12,fontWeight:700,fontSize:12,border:`1px dashed ${VIOLET}`,cursor:"pointer",background:VIOLET_L,color:VIOLET}}>{lang==="en"?"🎯 Assess My Level":lang==="zh"?"🎯 帮我评估等级":"🎯 不确定？评估等级 Assess Level"}</button>
+        <button style={{width:"100%",marginTop:6,padding:"8px 0",borderRadius:12,fontWeight:700,fontSize:12,border:`1px dashed ${VIOLET}`,cursor:"pointer",background:VIOLET_L,color:VIOLET}}>🎯 帮我评估等级</button>
       </div>
       <button onClick={addP} disabled={!form.name.trim()} style={{width:"100%",padding:"10px 0",borderRadius:12,fontWeight:700,fontSize:14,border:"none",background:form.name.trim()?EMERALD:"rgba(0,0,0,.05)",cursor:form.name.trim()?"pointer":"not-allowed",color:form.name.trim()?"#fff":"rgba(0,0,0,.25)"}}>+ 添加球员 Add Player</button>
 
-      {players.length===0?<div style={{textAlign:"center",padding:"20px 0",opacity:.4,fontSize:13}}>{lang==="en"?"No players yet — add some above":lang==="zh"?"暂无球员，请添加":"暂无球员 No players yet"}</div>:
+      {players.length===0?<div style={{textAlign:"center",padding:"20px 0",opacity:.4,fontSize:13}}>暂无球员，请添加</div>:
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span style={{fontSize:11,opacity:.5}}>男 {ms.length} · 女 {fs.length}</span>
-            {isOwner&&<button onClick={()=>{if(window.confirm("清空全部？"))setPlayers([]);}} style={{fontSize:11,background:"none",border:"none",cursor:"pointer",color:ROSE,opacity:.6}}>{lang==="en"?"Clear All":lang==="zh"?"清空全部":"清空全部 Clear All"}</button>}
+            {isOwner&&<button onClick={()=>{if(window.confirm("清空全部？"))setPlayers([]);}} style={{fontSize:11,background:"none",border:"none",cursor:"pointer",color:ROSE,opacity:.6}}>清空全部</button>}
           </div>
           {players.map(p=>{
             const mine=p.addedBy===myId||isOwner;
@@ -1642,74 +1555,55 @@ function AdvancedPanel(){
     </div>}
 
     {tab==="schedule"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
-      {isOwner && <>
-        {/* Game Mode */}
-        <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:8}}>
-          <div style={S.lbl}>{lang==="en"?"Game Mode":lang==="zh"?"比赛模式":"比赛模式 Game Mode"}</div>
-          {MODES.map(m=>{
-            const disabled = m.id!=="mixed" && (m.needM>ms.length||m.needF>fs.length);
-            const active = gameMode===m.id;
-            return <button key={m.id} onClick={()=>!disabled&&setGameMode(m.id)} disabled={disabled} style={{
-              display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:12,
-              border:`1px solid ${active?"rgba(22,163,74,.45)":disabled?"rgba(0,0,0,.04)":"rgba(0,0,0,.07)"}`,
-              background:active?EMERALD_L:disabled?"rgba(0,0,0,.02)":"rgba(0,0,0,.03)",
-              width:"100%",textAlign:"left",cursor:disabled?"not-allowed":"pointer",
-              color:active?"#14532d":disabled?"rgba(17,26,17,.25)":"rgba(17,26,17,.6)",
-            }}>
-              <span style={{fontSize:15}}>{m.icon}</span>
-              <div style={{flex:1}}><div style={{fontWeight:700,fontSize:13}}>{m.label}</div><div style={{fontSize:10,opacity:.5}}>{m.en}</div></div>
-              {active&&<span style={{color:EMERALD}}>✓</span>}
-            </button>;
-          })}
-        </div>
-        {/* Match Mode */}
-        <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:8}}>
-          <div style={S.lbl}>{lang==="en"?"Matching Mode":lang==="zh"?"匹配方式":"匹配方式 Matching Mode"}</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            {[{id:"random",icon:"🔀",label:"随机匹配",en:"Random",desc:"最大化覆盖率"},
-              {id:"balanced",icon:"⚖️",label:"能力匹配",en:"Skill-Balanced",desc:"相近水平对决"}
-            ].map(opt=>(
-              <button key={opt.id} onClick={()=>setMatchMode(opt.id)} style={{
-                padding:12,borderRadius:12,textAlign:"left",cursor:"pointer",border:"none",
-                border:`1px solid ${matchMode===opt.id?"rgba(124,58,237,.4)":"rgba(0,0,0,.07)"}`,
-                background:matchMode===opt.id?VIOLET_L:"rgba(0,0,0,.03)",
-                color:matchMode===opt.id?VIOLET:"rgba(17,26,17,.6)",
-              }}>
-                <div style={{fontSize:18}}>{opt.icon}</div>
-                <div style={{fontWeight:700,fontSize:13,marginTop:4}}>{opt.label}</div>
-                <div style={{fontSize:10,opacity:.6}}>{opt.en}</div>
-                <div style={{fontSize:10,opacity:.35,marginTop:2}}>{opt.desc}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-        <TargetGamesInput value={targetGames} onChange={setTargetGames} />
-        <button onClick={gen} disabled={players.length<2} style={{width:"100%",padding:"14px 0",borderRadius:12,fontWeight:900,fontSize:14,border:"none",background:players.length>=2?EMERALD:"rgba(0,0,0,.05)",cursor:players.length>=2?"pointer":"not-allowed",color:players.length>=2?"#fff":"rgba(0,0,0,.25)"}}>{lang==="en"?"🏸 Generate Schedule":lang==="zh"?"🏸 生成赛程":"🏸 生成赛程 Generate Schedule"}</button>
-      </>}
-      {!isOwner && <div style={{...S.card2,padding:12,textAlign:"center",fontSize:12,opacity:.6}}>{lang==="en"?"Waiting for host to generate…":lang==="zh"?"等待房主生成赛程…":"等待房主生成赛程 Waiting…"}</div>}
-      {rounds&&<ResultView rounds={rounds} mode={gameMode} matchMode={matchMode} checked={checked} setChecked={setChecked}
+      {isOwner
+        ?<button onClick={gen} disabled={players.length<2} style={{width:"100%",padding:"14px 0",borderRadius:12,fontWeight:900,fontSize:14,border:"none",background:players.length>=2?EMERALD:"rgba(0,0,0,.05)",cursor:players.length>=2?"pointer":"not-allowed",color:players.length>=2?"#fff":"rgba(0,0,0,.25)"}}>🏸 生成赛程 Generate Schedule</button>
+        :<div style={{...S.card2,padding:12,textAlign:"center",fontSize:12,opacity:.6}}>等待房主生成赛程…</div>
+      }
+      {rounds&&<ResultView rounds={rounds} mode="mixed" checked={checked} setChecked={setChecked}
         onRegen={isOwner?gen:null} onAddPlayers={isOwner?addPlayers:null}
         onRemovePlayers={isOwner?removePlayer:null} onMoreRounds={isOwner?moreRounds:null}
         isOwner={isOwner}/>}
-      {!rounds&&<div style={{textAlign:"center",padding:"24px 0",opacity:.4,fontSize:13}}>{players.length>=2?(isOwner?lang==="en"?"Tap above to generate schedule":lang==="zh"?"点上方生成赛程":"点上方生成赛程 Tap to generate":"等待房主生成赛程"):"请先添加至少2名球员"}</div>}
+      {!rounds&&<div style={{textAlign:"center",padding:"24px 0",opacity:.4,fontSize:13}}>{players.length>=2?(isOwner?"点上方生成赛程":"等待房主生成赛程"):"请先添加至少2名球员"}</div>}
     </div>}
   </div>;
 }
 
 function App(){
   const [tab,setTab]=useState("basic");
-  const [lang,setLang]=useState(()=>{try{return localStorage.getItem("bmt_lang")||"bi";}catch{return "bi";}});
-  const [sharedData,setSharedData]=useState(null);
+  return <div style={{background:BG,minHeight:"100vh",fontFamily:"'PingFang SC','Microsoft YaHei',sans-serif",color:"#111a11"}}>
+    <style>{`*{box-sizing:border-box}input::placeholder{opacity:.4}button{font-family:inherit}`}</style>
+    <div style={{maxWidth:400,margin:"0 auto",padding:"32px 16px 64px"}}>
+      <div style={{textAlign:"center",marginBottom:28}}>
+        <div style={{fontSize:40,marginBottom:8}}>🏸</div>
+        <h1 style={{fontSize:24,fontWeight:900,margin:0,letterSpacing:-.5}}>羽毛球赛程安排</h1>
+        <p style={{fontSize:11,marginTop:4,letterSpacing:3,opacity:.4}}>BADMINTON MATCH SCHEDULER</p>
+      </div>
+      <div style={{display:"flex",gap:4,background:"rgba(0,0,0,.04)",border:"1px solid rgba(0,0,0,.05)",padding:4,borderRadius:18,marginBottom:24}}>
+        {[["basic","⚡ 快速模式 Quick"],["advanced","🎯 高级模式 Advanced"]].map(([id,l])=>(
+          <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"10px 0",borderRadius:14,fontSize:13,fontWeight:900,border:"none",cursor:"pointer",background:tab===id?"#16a34a":"transparent",color:tab===id?"#fff":"rgba(17,26,17,.45)"}}>{l}</button>
+        ))}
+      </div>
+      {tab==="basic"&&<BasicPanel/>}
+      {tab==="advanced"&&<AdvancedPanel/>}
+      <div style={{textAlign:"center",fontSize:9,marginTop:40,letterSpacing:3,textTransform:"uppercase",opacity:.3}}>覆盖优化 · 水平匹配 · 性别借位</div>
+    </div>
+  </div>;
+}
 
-  function changeLang(l){setLang(l);try{localStorage.setItem("bmt_lang",l);}catch{}}
+
+
+function App(){
+  const [tab,setTab] = useState("basic");
+  const [lang,setLang] = useState(()=>{ try{return localStorage.getItem("bmt_lang")||"bi";}catch{return "bi";} });
+  const [sharedData,setSharedData] = useState(null);
+  function changeLang(l){ setLang(l); try{localStorage.setItem("bmt_lang",l);}catch{} }
 
   useEffect(()=>{
     try{
-      const hash=window.location.hash;
+      const hash = window.location.hash;
       if(hash.startsWith("#share=")){
-        const encoded=hash.slice(7);
-        const data=JSON.parse(decodeURIComponent(escape(atob(encoded))));
-        if(data?.rounds&&data?.stats) setSharedData(data);
+        const data = JSON.parse(decodeURIComponent(escape(atob(hash.slice(7)))));
+        if(data?.rounds && data?.stats) setSharedData(data);
       }
     }catch{}
   },[]);
@@ -1722,38 +1616,36 @@ function App(){
 
   return (
     <LangContext.Provider value={lang}>
-    <div className="bmt" style={{background:BG,minHeight:"100vh",fontFamily:"'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif"}}>
+    <div className="bmt" style={{background:BG, minHeight:"100vh", fontFamily:"'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif"}}>
       <BmtStyles/>
-      <div style={{maxWidth:400,margin:"0 auto",padding:"32px 16px 64px"}}>
-        {/* Language switcher */}
-        <div style={{display:"flex",justifyContent:"center",marginBottom:16}}>
+      <div style={{maxWidth:400, margin:"0 auto", padding:"32px 16px 80px"}}>
+        <div style={{display:"flex", justifyContent:"center", marginBottom:16}}>
           <LangSwitcher lang={lang} setLang={changeLang}/>
         </div>
-        {/* Header */}
-        <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{fontSize:40,marginBottom:8}}>🏸</div>
-          <h1 style={{fontSize:24,fontWeight:900,margin:0,letterSpacing:-.5}}>
-            {lang==="en"?"Badminton Scheduler":"羽毛球赛程安排"}
+        <div style={{textAlign:"center", marginBottom:28}}>
+          <div style={{fontSize:40, marginBottom:8}}>🏸</div>
+          <h1 style={{fontSize:24, fontWeight:900, margin:0, letterSpacing:-0.5}}>
+            {lang==="en" ? "Badminton Scheduler" : "羽毛球赛程安排"}
           </h1>
-          <p className="c-dim" style={{fontSize:11,marginTop:4,letterSpacing:3}}>
-            {lang==="zh"?"羽毛球赛程 · 覆盖优化":"BADMINTON MATCH SCHEDULER"}
+          <p className="c-dim" style={{fontSize:11, marginTop:4, letterSpacing:3}}>
+            {lang==="zh" ? "覆盖优化 · 水平匹配" : "BADMINTON MATCH SCHEDULER"}
           </p>
         </div>
-        {/* Mode toggle */}
-        <div style={{display:"flex",gap:4,background:"rgba(0,0,0,0.04)",border:"1px solid rgba(0,0,0,0.05)",padding:4,borderRadius:18,marginBottom:24}}>
-          {[["basic", lang==="en"?"⚡ Quick Mode":lang==="zh"?"⚡ 快速模式":"⚡ 快速模式 Quick"],
-            ["advanced", lang==="en"?"🎯 Advanced Mode":lang==="zh"?"🎯 高级模式":"🎯 高级模式 Advanced"]
+        <div style={{display:"flex", gap:4, background:"rgba(0,0,0,0.04)", border:"1px solid rgba(0,0,0,0.05)", padding:4, borderRadius:18, marginBottom:24}}>
+          {[
+            ["basic",    lang==="en"?"⚡ Quick":lang==="zh"?"⚡ 快速模式":"⚡ 快速模式 Quick"],
+            ["advanced", lang==="en"?"🎯 Advanced":lang==="zh"?"🎯 高级模式":"🎯 高级模式 Advanced"],
           ].map(([id,label])=>(
             <button key={id} onClick={()=>setTab(id)}
               className={tab===id?"c-white":"c-muted"}
-              style={{flex:1,padding:"10px 0",borderRadius:14,fontSize:13,fontWeight:900,border:"none",cursor:"pointer",
-                background:tab===id?EMERALD:"transparent"}}>{label}</button>
+              style={{flex:1, padding:"10px 0", borderRadius:14, fontSize:13, fontWeight:900, border:"none", cursor:"pointer",
+                background: tab===id ? EMERALD : "transparent"}}>{label}</button>
           ))}
         </div>
-        {tab==="basic"&&<BasicPanel/>}
-        {tab==="advanced"&&<AdvancedPanel/>}
-        <div className="c-dim" style={{textAlign:"center",fontSize:9,marginTop:40,letterSpacing:3,textTransform:"uppercase"}}>
-          {lang==="en"?"Coverage · Skill Balance · Gender Sub-in":lang==="zh"?"覆盖优化 · 水平匹配 · 性别借位":"覆盖优化 Coverage · 水平匹配 Skill · 性别借位 Sub-in"}
+        {tab==="basic"    && <BasicPanel/>}
+        {tab==="advanced" && <AdvancedPanel/>}
+        <div className="c-dim" style={{textAlign:"center", fontSize:9, marginTop:40, letterSpacing:3, textTransform:"uppercase"}}>
+          {lang==="en" ? "Coverage · Skill Balance · Gender Sub-in" : "覆盖优化 · 水平匹配 · 性别借位"}
         </div>
       </div>
     </div>
@@ -1761,10 +1653,6 @@ function App(){
   );
 }
 
-
-/* ═══════════════════════════════════════════════════════════
-   BASIC PANEL
-═══════════════════════════════════════════════════════════ */
 
 function SharedView({ data }) {
   useForceDarkBg();
@@ -1794,11 +1682,10 @@ function SharedView({ data }) {
   );
 }
 
-
-
     // Mount
     const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    root.render(<App/>);
+
   </script>
 </body>
 </html>
