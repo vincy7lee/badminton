@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Build: 2026-03-21 22:55:59 -->
+<!-- Build: 2026-03-25 17:53:32 -->
 <html lang="zh">
 <head>
   <meta charset="UTF-8"/>
@@ -891,7 +891,7 @@ function ShareModal({ result, matchMode, onClose }) {
       .join("");
 
     const html = `<!DOCTYPE html>
-<!-- Build: 2026-03-21 22:55:59 -->
+<!-- Build: 2026-03-25 17:53:32 -->
 <html lang="zh">
 <head>
 <meta charset="UTF-8"/>
@@ -1182,29 +1182,9 @@ function NumPickerModal({title, onConfirm, onClose}){
   </div>;
 }
 
-/* ── ExtraRoundsModal ── */
-function ExtraRoundsModal({onConfirm, onClose}){
-  const [n,setN]=useState(3);
-  return <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"rgba(0,0,0,0.5)"}}
-    onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{...S.card,padding:22,width:"100%",maxWidth:320,display:"flex",flexDirection:"column",gap:14}} onClick={e=>e.stopPropagation()}>
-      <div style={{fontWeight:900,fontSize:16}}>➕ 继续加场 Add Rounds</div>
-      <div style={{fontSize:12,opacity:.6}}>在现有赛程后继续生成几轮？ How many more rounds?</div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:16}}>
-        <button onClick={()=>setN(Math.max(1,n-1))} style={{width:40,height:40,borderRadius:10,background:"rgba(0,0,0,.07)",border:"none",fontSize:20,cursor:"pointer"}}>−</button>
-        <span style={{fontSize:36,fontWeight:900,color:EMERALD,width:50,textAlign:"center"}}>{n}</span>
-        <button onClick={()=>setN(Math.min(20,n+1))} style={{width:40,height:40,borderRadius:10,background:"rgba(0,0,0,.07)",border:"none",fontSize:20,cursor:"pointer"}}>+</button>
-      </div>
-      <div style={{display:"flex",gap:10}}>
-        <button onClick={onClose} style={{flex:1,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:"rgba(0,0,0,.06)",fontWeight:700}}>取消</button>
-        <button onClick={e=>{e.stopPropagation();onConfirm(n);}} style={{flex:2,padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:EMERALD,color:"#fff",fontWeight:900}}>生成 {n} 轮</button>
-      </div>
-    </div>
-  </div>;
-}
 
 /* ── ResultView ── */
-function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, onRemovePlayers, onMoreRounds, isOwner, players=[], onAddClick, onRemoveClick, onMoreClick}){
+function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, onRemovePlayers, onMoreRounds, isOwner, players=[], onAddClick, onRemoveClick}){
   const [open,setOpen]=useState(0);
   const total=rounds.reduce((s,r)=>s+r.length,0);
   const done=Object.values(checked).filter(Boolean).length;
@@ -1295,12 +1275,7 @@ function ResultView({rounds, mode, checked, setChecked, onRegen, onAddPlayers, o
               <button onClick={()=>onRemoveClick&&onRemoveClick(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:ROSE_L,color:ROSE,fontWeight:700}}>选择要离开的人 Select players leaving</button>
             </div>
           </DashedSection>
-          <DashedSection label="➕ 继续加场 Add Rounds">
-            <div style={{...S.card,padding:14,display:"flex",flexDirection:"column",gap:10}}>
-              <div style={{fontSize:12,opacity:.6}}>在第 {ri+1} 轮后继续增加轮次 · Add more rounds after Round {ri+1}</div>
-              <button onClick={()=>onMoreClick&&onMoreClick(ri)} style={{width:"100%",padding:"10px 0",borderRadius:12,border:"none",cursor:"pointer",background:AMBER_L,color:AMBER,fontWeight:700}}>选择加场数量 Select count</button>
-            </div>
-          </DashedSection>
+
         </div>
       </div>
     })}
@@ -1391,7 +1366,6 @@ function BasicPanel(){
   const [rounds,setRounds]=useState(null),[checked,setChecked]=useState({}),[pool,setPool]=useState([]);
   const [addModal,setAddModal]=useState(null);
   const [removeModal,setRemoveModal]=useState(null);
-  const [moreModal,setMoreModal]=useState(null);
   const mi=MODES.find(m=>m.id===mode);
   const needM=mi?.id==="mixed"||mi?.id?.includes("mens");
   const needF=mi?.id==="mixed"||mi?.id?.includes("womens");
@@ -1416,21 +1390,10 @@ function BasicPanel(){
     const np=pool.filter(p=>!ids.includes(p.id));setPool(np);
     setRounds([...kept,...schedWithHistory(np,mode,tgt,{},{},gc)]);
   }
-  function moreRounds(ri,n){
-    const kept=(rounds||[]).slice(0,ri+1);
-    const gc={};kept.forEach(r=>r.forEach(m=>[...m.teamA,...m.teamB].forEach(p=>{gc[p.id]=(gc[p.id]||0)+1;})));
-    // Generate extra rounds using existing history, take exactly n
-    // Generate n new rounds on top of existing history
-    const extra=schedWithHistory(pool,mode,tgt,{},{},gc);
-    // Take at most n new rounds, but always at least what was generated
-    const newRounds=extra.length>=n?extra.slice(0,n):extra;
-    setRounds([...kept,...newRounds]);
-  }
   const ok=mode==="mixed"?(numM>=1&&numF>=1):(needM?numM>=2:true)&&(needF?numF>=2:true);
   return <>
     {addModal!==null && <NumPickerModal title="🏸 有新人加入！" onConfirm={(nM,nF,named)=>{addPlayers(addModal,nM,nF,named);setAddModal(null);}} onClose={()=>setAddModal(null)}/>}
     {removeModal!==null && <PlayerPickerModal title="移除选手 Remove Players" players={removeModal.players} multiSelect onPick={(ids)=>{removePlayer(removeModal.ri,ids);setRemoveModal(null);}} onClose={()=>setRemoveModal(null)}/>}
-    {moreModal!==null && <ExtraRoundsModal onConfirm={(n)=>{moreRounds(moreModal,n);setMoreModal(null);}} onClose={()=>setMoreModal(null)}/>}
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
     <div style={{display:"grid",gridTemplateColumns:needM&&needF?"1fr 1fr":"1fr",gap:12}}>
       {needM&&<div style={{background:SKY_L,border:"1px solid rgba(2,132,199,.25)",borderRadius:16,padding:14}}>
@@ -1467,7 +1430,7 @@ function BasicPanel(){
       </button>;})}
     </div>
     <button onClick={gen} disabled={!ok} style={{width:"100%",padding:"14px 0",borderRadius:16,fontWeight:900,fontSize:14,background:ok?EMERALD:"rgba(0,0,0,.05)",border:"none",cursor:ok?"pointer":"not-allowed",color:ok?"#fff":"rgba(0,0,0,.25)"}}>🏸 生成赛程 Generate Schedule</button>
-    {rounds&&<ResultView rounds={rounds} mode={mode} checked={checked} setChecked={setChecked} onRegen={gen} isOwner={true} players={pool} onAddClick={ri=>setAddModal(ri)} onRemoveClick={ri=>setRemoveModal({ri,players:pool})} onMoreClick={ri=>setMoreModal(ri)}/>}
+    {rounds&&<ResultView rounds={rounds} mode={mode} checked={checked} setChecked={setChecked} onRegen={gen} isOwner={true} players={pool} onAddClick={ri=>setAddModal(ri)} onRemoveClick={ri=>setRemoveModal({ri,players:pool})} />}
   </div>
   </>;
 }
@@ -1520,7 +1483,6 @@ function AdvancedPanel(){
   const [showTransfer,setShowTransfer]=useState(false);
   const [addModal,setAddModal]=useState(null);
   const [removeModal,setRemoveModal]=useState(null);
-  const [moreModal,setMoreModal]=useState(null);
   const [targetGames,setTargetGames]=useState(5);
   const [matchMode,setMatchMode]=useState("random");
   const [gameMode,setGameMode]=useState("mixed");
@@ -1618,16 +1580,7 @@ function AdvancedPanel(){
     const nr=[...kept,...schedWithHistory(np,gameMode,targetGames,opposed,teamed,gc)];
     setRounds(nr);saveRoomState(np,nr);
   }
-  function moreRounds(ri,n){
-    if(!isOwner)return;
-    const kept=(rounds||[]).slice(0,ri+1);
-    const gc=buildGcFromRounds(kept);
-    const {opposed,teamed}=buildOpposedFromRounds(kept);
-    const extra=schedWithHistory(players,gameMode,targetGames,opposed,teamed,gc);
-    const newRounds=extra.length>=n?extra.slice(0,n):extra;
-    const nr=[...kept,...newRounds];
-    setRounds(nr);saveRoomState(players,nr);
-  }
+
   function transferOwner(newOwnerId){
     ownerIdRef.current=newOwnerId;setIsOwner(false);
     saveRoomState(players,rounds,newOwnerId);
@@ -1686,7 +1639,6 @@ function AdvancedPanel(){
   return <div style={{display:"flex",flexDirection:"column",gap:12}}>
     {addModal!==null && <NumPickerModal title="🏸 有新人加入！" onConfirm={(nM,nF,named)=>{addPlayers(addModal,nM,nF,named);setAddModal(null);}} onClose={()=>setAddModal(null)}/>}
     {removeModal!==null && <PlayerPickerModal title="移除选手 Remove Players" players={removeModal.players} multiSelect onPick={(ids)=>{removePlayer(removeModal.ri,ids);setRemoveModal(null);}} onClose={()=>setRemoveModal(null)}/>}
-    {moreModal!==null && <ExtraRoundsModal onConfirm={(n)=>{moreRounds(moreModal,n);setMoreModal(null);}} onClose={()=>setMoreModal(null)}/>}
     {showTransfer&&<TransferOwnerModal members={roomMembers} myId={myId} players={players} onTransfer={(id)=>{transferOwner(id);setShowTransfer(false);}} onClose={()=>setShowTransfer(false)}/>}
     {showQuiz&&<SkillQuiz onDone={lv=>{setForm(f=>({...f,skill:Math.round(lv*2)/2}));setShowQuiz(false);}} onClose={()=>setShowQuiz(false)}/>}
 
@@ -1841,7 +1793,7 @@ function AdvancedPanel(){
         onRegen={isOwner?gen:null} isOwner={isOwner} players={players}
         onAddClick={isOwner?ri=>setAddModal(ri):null}
         onRemoveClick={isOwner?ri=>setRemoveModal({ri,players}):null}
-        onMoreClick={isOwner?ri=>setMoreModal(ri):null}/>}
+        />}
       {!rounds&&<div style={{textAlign:"center",padding:"24px 0",opacity:.4,fontSize:13}}>
         {players.length>=2?(isOwner?"点上方生成赛程 · Tap above to generate":"等待房主生成赛程 · Waiting for host"):"请先添加至少2名球员 · Add at least 2 players"}
       </div>}
