@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Build: 2026-03-25 17:53:32 -->
+<!-- Build: 2026-03-27 18:43:31 -->
 <html lang="zh">
 <head>
   <meta charset="UTF-8"/>
@@ -891,7 +891,7 @@ function ShareModal({ result, matchMode, onClose }) {
       .join("");
 
     const html = `<!DOCTYPE html>
-<!-- Build: 2026-03-25 17:53:32 -->
+<!-- Build: 2026-03-27 18:43:31 -->
 <html lang="zh">
 <head>
 <meta charset="UTF-8"/>
@@ -1491,6 +1491,7 @@ function AdvancedPanel(){
     try{let id=localStorage.getItem("bmt_uid");if(!id){id=uid();localStorage.setItem("bmt_uid",id);}return id;}catch{return uid();}
   });
   const ownerIdRef=useRef(null);
+  const lastSavedAt=useRef(0);
 
   useEffect(()=>{
     try{
@@ -1512,6 +1513,7 @@ function AdvancedPanel(){
         headers:{"Prefer":"resolution=merge-duplicates,return=representation"},
         body:JSON.stringify({code:activeCode,players:newPlayers,schedule:newRounds?{rounds:newRounds,ts:Date.now()}:null,owner_id:ownerToSave,updated_at:new Date().toISOString(),members:JSON.stringify([...(roomMembers.some(m=>m.id===myId)?roomMembers:[...roomMembers,{id:myId,name:"成员"}])])}),
       });
+      lastSavedAt.current=Date.now();
       setSync("✓ 已同步");
     }catch{setSync("⚠ 同步失败");}
     setTimeout(()=>setSync(""),2500);
@@ -1524,8 +1526,14 @@ function AdvancedPanel(){
         const data=await sbFetch(`/rest/v1/bmt_rooms?code=eq.${encodeURIComponent(code)}&select=players,schedule,owner_id,members`);
         if(!data||!data[0])return;
         const row=data[0];
-        if(row.players) setPlayers(row.players);
-        if(row.schedule?.rounds) setRounds(row.schedule.rounds);
+        // Only apply remote data if we haven't just saved ourselves (avoid echo)
+        const remoteTs = row.schedule?.ts || 0;
+        const timeSinceOurSave = Date.now() - lastSavedAt.current;
+        if(timeSinceOurSave > 3000) {
+          // Remote is newer or we haven't saved recently - apply
+          if(row.players) setPlayers(row.players);
+          if(row.schedule?.rounds && remoteTs > lastSavedAt.current - 3000) setRounds(row.schedule.rounds);
+        }
         if(row.owner_id){ownerIdRef.current=row.owner_id;setIsOwner(row.owner_id===myId);}
         if(row.members){try{const m=JSON.parse(row.members);setRoomMembers(m);}catch{}}
         // Register self if not in members
@@ -1555,7 +1563,6 @@ function AdvancedPanel(){
     saveRoomState(players,newRounds);
   }
   function addPlayers(ri,nM,nF,namedPlayers){
-    if(!isOwner)return;
     const kept=(rounds||[]).slice(0,ri+1);
     const gc=buildGcFromRounds(kept);
     const {opposed,teamed}=buildOpposedFromRounds(kept);
@@ -1572,7 +1579,6 @@ function AdvancedPanel(){
     setRounds(nr);saveRoomState(np,nr);
   }
   function removePlayer(ri,ids){
-    if(!isOwner)return;
     const kept=(rounds||[]).slice(0,ri+1);
     const gc=buildGcFromRounds(kept);
     const {opposed,teamed}=buildOpposedFromRounds(kept);
@@ -1791,8 +1797,8 @@ function AdvancedPanel(){
       {!isOwner&&<div style={{...S.card2,padding:12,textAlign:"center",fontSize:12,opacity:.6}}>等待房主生成赛程 · Waiting for host to generate…</div>}
       {rounds&&<ResultView rounds={rounds} mode={gameMode} matchMode={matchMode} checked={checked} setChecked={setChecked}
         onRegen={isOwner?gen:null} isOwner={isOwner} players={players}
-        onAddClick={isOwner?ri=>setAddModal(ri):null}
-        onRemoveClick={isOwner?ri=>setRemoveModal({ri,players}):null}
+        onAddClick={ri=>setAddModal(ri)}
+        onRemoveClick={ri=>setRemoveModal({ri,players})}
         />}
       {!rounds&&<div style={{textAlign:"center",padding:"24px 0",opacity:.4,fontSize:13}}>
         {players.length>=2?(isOwner?"点上方生成赛程 · Tap above to generate":"等待房主生成赛程 · Waiting for host"):"请先添加至少2名球员 · Add at least 2 players"}
